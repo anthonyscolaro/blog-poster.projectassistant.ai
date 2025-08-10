@@ -1,0 +1,62 @@
+{
+  "topic_rec": {
+    "topic_slug": "ada-service-dog-requirements",
+    "primary_kw": "ADA service dog requirements",
+    "secondary_kws": [
+      "service dog rights",
+      "two ADA questions",
+      "service animal rules"
+    ],
+    "title_variants": [
+      "ADA Service Dog Requirements: What Handlers and Businesses Must Know",
+      "Service Dog Rules Under the ADA: A Practical Guide",
+      "Understanding ADA Requirements for Service Animals"
+    ],
+    "rationale": "Core evergreen topic with high search intent and legal sensitivity.",
+    "supporting_urls": [
+      "https://www.ada.gov/resources/service-animals-2010-requirements/",
+      "https://www.ecfr.gov/current/title-28/part-36/section-36.302"
+    ],
+    "score_breakdown": {"evergreen": 0.9, "volume": 0.8, "competition": 0.6}
+  },
+  "brand_style": {
+    "voice": "clear, empathetic",
+    "audience": "general public",
+    "tone": "confident",
+    "reading_grade_target": 8,
+    "banned_phrases": ["official registration", "ADA-approved"]
+  },
+  "site_info": {
+    "site_url": "https://servicedogus.org",
+    "canonical_base": "https://servicedogus.org",
+    "category_map": {"ADA Compliance": 1, "Training": 2, "Handler Resources": 3},
+    "internal_link_candidates": [
+      {
+        "url": "https://servicedogus.org/esa-vs-service-dog",
+        "title": "Emotional Support Animal vs Service Dog: Key Differences"
+      },
+      {
+        "url": "https://servicedogus.org/state-laws",
+        "title": "Service Dog Laws by State"
+      }
+    ]
+  },
+  "evidence": {
+    "facts": [],
+    "statutes": [],
+    "dates": [],
+    "sources": [
+      "https://www.ada.gov/resources/service-animals-2010-requirements/",
+      "https://www.ecfr.gov/current/title-28/part-36/section-36.302"
+    ],
+    "serp_snapshot": [],
+    "competitor_chunks": []
+  },
+  "constraints": {
+    "min_words": 1500,
+    "max_words": 2000,
+    "image_policy": "stock_or_generated_ok",
+    "require_disclaimer": true,
+    "disallow_competitor_links": true
+  }
+}

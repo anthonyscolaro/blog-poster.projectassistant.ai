@@ -1,0 +1,55 @@
+{
+  "info": {
+    "name": "Blog Poster",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "3a57a5db-9be2-4f58-98c7-9b3a4e9d1abc"
+  },
+  "item": [
+    {
+      "name": "Generate Article (/agent/run)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{topic_input}}"
+        },
+        "url": {
+          "raw": "http://localhost:8088/agent/run",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8088",
+          "path": ["agent", "run"]
+        }
+      }
+    },
+    {
+      "name": "Publish to WordPress (/publish/wp)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"frontmatter\": {\n    \"title\": \"Example Post\",\n    \"slug\": \"example-post\",\n    \"category\": \"ADA Compliance\",\n    \"tags\": [\"service dogs\"],\n    \"meta_title\": \"Example Title That Fits\",\n    \"meta_desc\": \"This is a meta description with the right length.\",\n    \"canonical\": \"https://servicedogus.org/example-post\",\n    \"schema_jsonld\": {},\n    \"internal_link_targets\": [],\n    \"citations\": [\"https://www.ada.gov/resources/service-animals-2010-requirements/\"]\n  },\n  \"markdown\": \"# Example\\n\\nBody...\",\n  \"status\": \"DRAFT\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8088/publish/wp",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8088",
+          "path": ["publish", "wp"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "topic_input",
+      "value": ""
+    }
+  ]
+}
