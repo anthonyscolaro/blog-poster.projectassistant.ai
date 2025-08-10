@@ -1,0 +1,54 @@
+{
+  "topic_rec": {
+    "topic_slug": "ada-service-dog-requirements",
+    "primary_kw": "ADA service dog requirements",
+    "secondary_kws": ["service dog laws", "ADA compliance", "service animal rights"],
+    "title_variants": [
+      "Understanding ADA Service Dog Requirements in 2025",
+      "Complete Guide to ADA Service Dog Requirements",
+      "What Are the ADA Requirements for Service Dogs?"
+    ],
+    "rationale": "High search volume topic with clear legal requirements",
+    "supporting_urls": [
+      "https://www.ada.gov/resources/service-animals-2010-requirements/"
+    ],
+    "score_breakdown": {
+      "search_volume": 0.85,
+      "competition": 0.65,
+      "relevance": 0.95
+    },
+    "risk_flags": []
+  },
+  "brand_style": {
+    "voice": "clear, empathetic",
+    "audience": "general public",
+    "tone": "confident",
+    "reading_grade_target": 8,
+    "banned_phrases": []
+  },
+  "site_info": {
+    "site_url": "https://servicedogus.org",
+    "canonical_base": "https://servicedogus.org",
+    "category_map": {
+      "ADA Compliance": 1,
+      "Training": 2,
+      "Resources": 3
+    },
+    "internal_link_candidates": []
+  },
+  "evidence": {
+    "facts": [],
+    "statutes": [],
+    "dates": [],
+    "sources": [],
+    "serp_snapshot": [],
+    "competitor_chunks": []
+  },
+  "constraints": {
+    "min_words": 1500,
+    "max_words": 2500,
+    "image_policy": "stock_or_generated_ok",
+    "require_disclaimer": true,
+    "disallow_competitor_links": true
+  }
+}

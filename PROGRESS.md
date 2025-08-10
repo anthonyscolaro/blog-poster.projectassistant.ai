@@ -1,108 +1,156 @@
-# Blog Poster — Progress & Status
+# Blog-Poster Implementation Progress
 
-## What’s done
-- Rules/docs aligned
-  - Added `.cursorrules` and updated `CLAUDE.md` to use `~/shared-docs/` with key WP Headless refs
-  - Added Shared Docs section to `README.md`
-- PRP & tasks
-  - Created `PRPs/blog-poster.prp.md` (goal, success criteria, tasks, validation loop)
-  - Added in-progress checklist to `TASK.md`
-- Publisher & auth
-  - Publisher supports Bearer JWT or Basic (Application Passwords)
-  - JWT login fallback via WPGraphQL if available
-  - `WP_VERIFY_SSL` to allow local self-signed HTTPS
-  - Ensured `ADA Compliance` category exists via WP-CLI
-  - Generated WP Application Password and saved in `.env.local`
-- Docker & env
-  - `blog-poster/docker-compose.yml` loads `../.env.local`
-  - Removed Redis host port mapping (avoids conflict with project Redis)
-  - Relaxed qdrant health gating (depends_on: service_started)
-  - Publisher prefers internal WP URL; fallback to external
-  - API service exports `WORDPRESS_URL` from `WORDPRESS_LOCAL_URL` with host fallback
-- Makefile
-  - Added targets: `blog-poster-up`, `blog-poster-down`, `blog-poster-logs`, `blog-poster-rebuild`
-- Examples
-  - Added Base64 hero image curl example to `blog-poster/blog-poster.md`
+## 🎯 Current Status: MVP Foundation (40% Complete)
 
-## Environment
-Use repository root `.env.local`:
+### ✅ Completed Components
+
+#### Infrastructure & DevOps
+- ✅ Docker Compose stack with all services configured
+- ✅ Port allocation strategy (8088, 6333, 5433, 6384)
+- ✅ Environment configuration with `.env.local`
+- ✅ Health check endpoints
+- ✅ Service dependencies properly configured
+
+#### API Framework
+- ✅ FastAPI application structure
+- ✅ RESTful endpoints defined
+- ✅ Pydantic models for data validation
+- ✅ CORS middleware configured
+- ✅ OpenAPI documentation at `/docs`
+
+#### WordPress Integration
+- ✅ WPGraphQL connection support
+- ✅ REST API media upload capability
+- ✅ JWT and Application Password authentication
+- ✅ SSL verification toggle for local dev
+- ✅ Publisher agent with retry logic
+
+#### Data Models
+- ✅ Complete Pydantic schemas in `contracts.py`
+- ✅ Article, SEO, and publishing models
+- ✅ Workflow state management models
+- ✅ Type-safe request/response contracts
+
+### ⚠️ In Progress / Stubbed
+
+#### Agent Implementations
+- ⚠️ Competitor Monitoring Agent - Referenced but not implemented
+- ⚠️ Topic Analysis Agent - Referenced but not implemented  
+- ⚠️ Article Generation Agent - Stubbed with mock responses
+- ⚠️ Legal Fact Checker Agent - Returns hardcoded "verified"
+- ✅ WordPress Publishing Agent - Functional
+
+#### LLM Integration
+- ⚠️ Anthropic Claude integration - API key configured but not used
+- ⚠️ OpenAI fallback - Not implemented
+- ⚠️ Cost tracking - Models defined but not calculated
+
+#### Vector Search
+- ⚠️ Qdrant integration - Service running but not utilized
+- ⚠️ PostgreSQL pgvector - Database ready but no embeddings
+- ⚠️ Semantic search - Not implemented
+
+### ❌ Not Implemented
+
+#### Core Functionality
+- ❌ Jina AI web scraping integration
+- ❌ Actual article generation with LLMs
+- ❌ Real fact checking logic
+- ❌ Internal link resolution
+- ❌ SEO optimization beyond basic linting
+- ❌ Image generation/sourcing
+- ❌ Content scheduling
+
+#### Testing & Quality
+- ❌ Unit tests (no `/tests` directory)
+- ❌ Integration tests
+- ❌ E2E tests with Playwright
+- ❌ Load testing
+- ❌ Error recovery mechanisms
+
+#### Production Features
+- ❌ Authentication/authorization
+- ❌ Rate limiting
+- ❌ Monitoring/alerting
+- ❌ Log aggregation
+- ❌ Backup strategies
+- ❌ Production deployment scripts
+
+## 📊 Implementation Metrics
+
+| Component | Status | Progress |
+|-----------|--------|----------|
+| Infrastructure | ✅ Complete | 100% |
+| API Framework | ✅ Complete | 100% |
+| Data Models | ✅ Complete | 100% |
+| WordPress Integration | ✅ Complete | 100% |
+| Agent System | ⚠️ Partial | 20% |
+| LLM Integration | ❌ Stubbed | 5% |
+| Vector Search | ❌ Not started | 0% |
+| Testing | ❌ Not started | 0% |
+| Production Ready | ❌ Not started | 0% |
+
+## 🚀 Quick Start Commands
 
 ```bash
-# WordPress local
-WORDPRESS_LOCAL_URL=https://host.docker.internal:8445
-WORDPRESS_LOCAL_GRAPHQL_URL=https://host.docker.internal:8445/graphql
-WORDPRESS_LOCAL_API_URL=https://host.docker.internal:8445/wp-json/wp/v2
+# Start services
+docker compose up -d
 
-# External browser access
-WORDPRESS_EXTERNAL_URL=https://localhost:8445
-WORDPRESS_EXTERNAL_GRAPHQL_URL=https://localhost:8445/graphql
+# Check health
+curl http://localhost:8088/health
 
-# Auth (choose ONE method)
-WP_AUTH_TOKEN=                 # if JWT available
-# OR Application Passwords
-WP_USERNAME=admin
-WP_APP_PASSWORD=<generated>
+# Test SEO linting (working)
+curl -X POST http://localhost:8088/seo/lint -d @test-seo.json
 
-# Local SSL
-WP_VERIFY_SSL=false
+# Test publishing (working)  
+curl -X POST http://localhost:8088/publish/wp -d @test-input.json
+
+# Test article generation (stubbed)
+curl -X POST http://localhost:8088/agent/run -d @topic-input.json
 ```
 
-## How to run
-```bash
-# Start WordPress
-make wp-up
+## 🔄 Next Priority Tasks
 
-# Start blog-poster stack (API, qdrant, pgvector, redis)
-make blog-poster-up
+1. **Implement Article Generation Agent** 
+   - Connect to Anthropic API
+   - Add prompt engineering
+   - Generate real content
 
-# Logs
-make blog-poster-logs
-```
+2. **Add Jina AI Integration**
+   - Competitor content scraping
+   - Topic research automation
 
-## Smoke tests
-```bash
-# Health
-curl -s http://localhost:8088/health
+3. **Implement Vector Search**
+   - Index existing content
+   - Enable semantic similarity
+   - Internal link suggestions
 
-# Publish minimal post with inline Base64 hero image (DRAFT)
-BASE64_IMG="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
-jq -n --arg b64 "$BASE64_IMG" '{
-  frontmatter: {
-    title: "Base64 Media Upload Test",
-    slug: "base64-media-upload-test",
-    category: "ADA Compliance",
-    tags: ["service dogs"],
-    meta_title: "Base64 Upload Test",
-    meta_desc: "Validates inline Base64 media upload via REST and GraphQL.",
-    canonical: "https://servicedogus.org/base64-media-upload-test",
-    schema_jsonld: {},
-    internal_link_targets: [],
-    citations: ["https://www.ada.gov/resources/service-animals-2010-requirements/"]
-  },
-  markdown: "# Base64 Upload Test\n\nThis post validates media uploads.",
-  status: "DRAFT",
-  hero_image_base64: $b64,
-  hero_image_filename: "tiny.png"
-}' | curl -s -X POST http://localhost:8088/publish/wp -H 'Content-Type: application/json' -d @-
-```
+4. **Create Test Suite**
+   - Unit tests for all modules
+   - Integration tests for workflows
+   - Mock external services
 
-## Planned posts for validation
-- `ada-service-dog-requirements` — ADA overview, two questions, disclaimers, citations
-- `service-dog-laws-by-state-2025` — state-by-state quick reference with ADA context
-- `esa-vs-service-dog` — clear differences, rights, access, documentation
+5. **Production Hardening**
+   - Add authentication
+   - Implement rate limiting
+   - Set up monitoring
 
-## Playwright E2E (after publish)
-- Assert pages render with H1, meta, featured image via frontend routes
-- Validate slugs exist and return 200
-- Capture screenshots for visual confirmation
+## 📝 Known Issues
 
-## Issues & mitigations
-- Qdrant unhealthy gating API startup → relaxed depends_on to service_started
-- Redis port collision with project Redis → removed host port mapping
-- API→WP reachability from container (service DNS) → switched to `host.docker.internal` fallback exported to API
+1. **Agent orchestration disconnected** - Workflow defined but agents not wired
+2. **Mock responses everywhere** - Most endpoints return hardcoded data
+3. **No error handling** - Failures crash without recovery
+4. **No state persistence** - Workflow state lost on restart
+5. **Cost tracking non-functional** - Models exist but not calculated
 
-## Next steps
-- Publish 3 posts via `/publish/wp`
-- Verify in WP Admin and frontend
-- Add Playwright tests to assert presence of H1/meta/featured image per slug
-- Add minimal pytest for helper functions (follow-up)
+## 🎯 MVP Definition
+
+For a true MVP, we need:
+- [ ] One working agent (Article Generation)
+- [ ] Real LLM integration
+- [ ] Basic fact checking
+- [ ] Successful WordPress publishing
+- [ ] Cost tracking
+- [ ] Basic tests
+
+Current MVP completion: **~40%**

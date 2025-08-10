@@ -225,9 +225,11 @@ except ImportError:  # allow file to run without SDK installed
 class ClaudeClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        if anthropic and not self.api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not set")
-        self.client = anthropic.Client(api_key=self.api_key) if anthropic else None
+        # Only create client if we have a valid API key (not placeholder)
+        if anthropic and self.api_key and not self.api_key.startswith("your-"):
+            self.client = anthropic.Client(api_key=self.api_key)
+        else:
+            self.client = None
 
     async def complete(self, system_prompt: str, user_json: Dict[str, Any]) -> str:
         if not self.client:
@@ -237,7 +239,7 @@ class ClaudeClient:
             model="claude-3-5-sonnet-latest",
             max_tokens=4000,
             system=system_prompt,
-            messages=[{"role": "user", "content": json.dumps(user_json)}],
+            messages=[{"role": "user", "content": json.dumps(user_json, default=str)}],
         )
         return msg.content[0].text  # type: ignore
 
@@ -260,7 +262,7 @@ class ClaudeClient:
             model="claude-3-5-sonnet-latest",
             max_tokens=5000,
             messages=history + [
-                {"role": "user", "content": json.dumps({"tool_result": tool_result.model_dump()})}
+                {"role": "user", "content": json.dumps({"tool_result": tool_result.model_dump()}, default=str)}
             ],
         )
         return msg.content[0].text  # type: ignore
@@ -315,7 +317,7 @@ async def run_agent(payload: InputsEnvelope):
             system_prompt = f.read()
     else:
         system_prompt = os.getenv("SYSTEM_PROMPT", "(inject the system prompt from your initial.md here)")
-    first = await claude.complete(system_prompt, user_json=payload.model_dump())
+    first = await claude.complete(system_prompt, user_json=payload.dict())
 
     tool_calls = parse_tool_calls(first)
     tool_results: List[ToolResult] = []
@@ -352,13 +354,13 @@ async def run_agent(payload: InputsEnvelope):
     # 3) Feed result(s) back to Claude and get the final output
     history = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": json.dumps(payload.model_dump())},
+        {"role": "user", "content": json.dumps(payload.dict(), default=str)},
         {"role": "assistant", "content": first},
     ]
 
     # In a real chain, you might feed results one-by-one and loop until no <tool/> tags remain.
     # For demo, bundle them.
-    final_text = await claude.continue_with_tool_result(history, tool_result=ToolResult(name="batch", payload={"results": [tr.model_dump() for tr in tool_results]}))
+    final_text = await claude.continue_with_tool_result(history, tool_result=ToolResult(name="batch", payload={"results": [tr.dict() for tr in tool_results]}))
 
     # Optional: run one last SEO lint here and, if violations, you could loop back for fixes
 

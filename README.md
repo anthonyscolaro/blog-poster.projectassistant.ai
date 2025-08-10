@@ -11,6 +11,16 @@ Blog Poster is a multi-agent system that:
 - Publishes content to WordPress via WPGraphQL
 - Operates completely independently from the main ServiceDogUS site
 
+### Implementation Status
+**Current Stage**: MVP Foundation (40% Complete)
+- ✅ Infrastructure and Docker setup complete
+- ✅ WordPress publishing functional
+- ✅ API framework and data models ready
+- ⚠️ Agent implementations stubbed/mocked
+- ❌ LLM integration and vector search pending
+
+See [PROGRESS.md](PROGRESS.md) for detailed status.
+
 ## Architecture
 
 This service runs separately from the main ServiceDogUS application with its own:
@@ -129,30 +139,35 @@ curl -X POST http://localhost:8088/publish/wp \
 
 ## Agents
 
-### 1. Competitor Monitoring Agent
-- Scrapes competitor blogs and social media
+### 1. Competitor Monitoring Agent (⚠️ Planned)
+- Will scrape competitor blogs and social media
 - Uses Jina AI for content extraction
 - Tracks new content and updates
+- **Status**: Not yet implemented
 
-### 2. Topic Analysis Agent
+### 2. Topic Analysis Agent (⚠️ Planned)
 - Analyzes trending topics
 - Identifies content gaps
 - Scores topics by SEO potential
+- **Status**: Not yet implemented
 
-### 3. Article Generation Agent
+### 3. Article Generation Agent (⚠️ Stubbed)
 - Uses Claude 3.5 Sonnet or GPT-4
 - Generates SEO-optimized content
 - Ensures factual accuracy
+- **Status**: Returns mock data, LLM integration pending
 
-### 4. Legal Fact Checker Agent
+### 4. Legal Fact Checker Agent (⚠️ Stubbed)
 - Verifies all legal claims
 - Ensures ADA compliance accuracy
 - Blocks misleading content
+- **Status**: Returns hardcoded "verified"
 
-### 5. WordPress Publishing Agent
+### 5. WordPress Publishing Agent (✅ Functional)
 - Publishes via WPGraphQL
 - Handles media uploads
 - Sets SEO metadata
+- **Status**: Fully implemented and working
 
 ## Docker Commands
 
@@ -259,16 +274,23 @@ uvicorn app:app --reload --port 8088
 
 ### Testing
 
+**Note**: Test suite not yet implemented. Planned testing structure:
+
 ```bash
-# Run unit tests
-pytest tests/
-
-# Test individual agents
-python -m agents.topic_analysis --test
-
-# Validate prompts
-python -m tools.prompt_validator
+# Future test commands (not yet available):
+# pytest tests/
+# python -m agents.topic_analysis --test
+# python -m tools.prompt_validator
 ```
+
+### Creating Missing Components
+
+To complete the implementation, the following need to be created:
+1. Agent implementations in `/agents/` directory
+2. LLM integration in article generation
+3. Jina AI scraping integration
+4. Vector search implementation
+5. Test suite in `/tests/` directory
 
 ## Production Deployment
 

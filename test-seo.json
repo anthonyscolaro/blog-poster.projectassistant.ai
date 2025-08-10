@@ -1,0 +1,8 @@
+{
+  "frontmatter": {
+    "meta_title": "Short",
+    "meta_desc": "This is too short",
+    "canonical": "https://example.com/test"
+  },
+  "markdown": "# Test Article\n\nSome content here.\n\n# Another H1\n\n![](image.jpg)"
+}
