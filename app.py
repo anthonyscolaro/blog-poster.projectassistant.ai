@@ -20,12 +20,17 @@ from __future__ import annotations
 import os
 import re
 import json
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl, Field, validator
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ------------------------------
 # Pydantic Contracts
@@ -381,6 +386,96 @@ class LintResponse(BaseModel):
 async def lint_endpoint(req: LintRequest):
     v = await seo_lint.lint(req.frontmatter, req.markdown)
     return LintResponse(violations=v)
+
+
+# ------------------------------
+# Competitor Monitoring Endpoints
+# ------------------------------
+from agents import CompetitorMonitoringAgent, CompetitorInsights
+from typing import List
+
+# Global agent instance (in production, use dependency injection)
+competitor_agent = None
+
+def get_competitor_agent():
+    """Get or create competitor monitoring agent"""
+    global competitor_agent
+    if competitor_agent is None:
+        competitor_agent = CompetitorMonitoringAgent()
+    return competitor_agent
+
+@app.post("/competitors/scan")
+async def scan_competitors(force: bool = False):
+    """
+    Scan competitor websites for new content
+    
+    Args:
+        force: Force scan even if recently scanned
+    """
+    agent = get_competitor_agent()
+    try:
+        content = await agent.scan_competitors(force=force)
+        return {
+            "status": "success",
+            "content_pieces": len(content),
+            "message": f"Scanned {len(content)} pieces of content"
+        }
+    except Exception as e:
+        logger.error(f"Competitor scan failed: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+@app.get("/competitors/insights")
+async def get_competitor_insights():
+    """Get comprehensive competitor analysis and insights"""
+    agent = get_competitor_agent()
+    try:
+        insights = await agent.generate_insights()
+        return insights.dict()
+    except Exception as e:
+        logger.error(f"Failed to generate insights: {str(e)}")
+        raise HTTPException(500, f"Failed to generate insights: {str(e)}")
+
+@app.get("/competitors/trends")
+async def get_trending_topics():
+    """Get current trending topics from competitors"""
+    agent = get_competitor_agent()
+    try:
+        content = await agent.scan_competitors()
+        trends = agent.analyze_trends(content)
+        return {
+            "trends": [t.dict() for t in trends],
+            "generated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get trends: {str(e)}")
+        raise HTTPException(500, f"Failed to get trends: {str(e)}")
+
+@app.get("/competitors/gaps")
+async def get_content_gaps():
+    """Identify content gaps compared to competitors"""
+    agent = get_competitor_agent()
+    try:
+        content = await agent.scan_competitors()
+        gaps = agent.identify_content_gaps(content)
+        return {
+            "gaps": [g.dict() for g in gaps],
+            "generated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to identify gaps: {str(e)}")
+        raise HTTPException(500, f"Failed to identify gaps: {str(e)}")
+
+
+# ------------------------------
+# Cleanup on shutdown
+# ------------------------------
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown"""
+    global competitor_agent
+    if competitor_agent:
+        await competitor_agent.close()
+        competitor_agent = None
 
 
 # ------------------------------

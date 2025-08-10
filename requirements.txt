@@ -23,6 +23,7 @@ markdown==3.5.1
 beautifulsoup4==4.12.2
 python-multipart==0.0.6
 pyyaml==6.0.1
+lxml==4.9.3  # For better HTML parsing with BeautifulSoup
 
 # HTTP clients
 httpx==0.25.2
@@ -39,6 +40,7 @@ graphql-core==3.2.3
 python-dotenv==1.0.0
 python-jose[cryptography]==3.3.0
 email-validator==2.1.0
+tenacity==8.2.3  # For retry logic
 
 # Development
 pytest==7.4.3
