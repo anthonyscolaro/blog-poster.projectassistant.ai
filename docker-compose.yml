@@ -1,0 +1,86 @@
+
+
+# Compose stack for the Article Generation Agent tool shim
+# Services:
+#  - api: FastAPI shim exposing /agent/run and /seo/lint
+#  - qdrant: Vector store (semantic search, internal link resolver)
+#  - vectors: Postgres+pgvector sidecar (optional; handy for analytics/offline jobs)
+#  - redis: Queue/cache if you later add workers (not required for the shim demo)
+#
+# Usage:
+#   1) Create a .env with at least: ANTHROPIC_API_KEY=... (and optional SYSTEM_PROMPT)
+#   2) Ensure your repo has app.py (the FastAPI file from the canvas) and requirements.txt
+#   3) docker compose up --build
+#   4) Hit http://localhost:8088/seo/lint or POST to http://localhost:8088/agent/run
+
+services:
+  api:
+    image: python:3.11-slim
+    container_name: blog-api
+    working_dir: /app
+    command: /bin/sh -lc "pip install --no-cache-dir -r requirements.txt && uvicorn app:app --host 0.0.0.0 --port 8088"
+    env_file:
+      - ./.env.local
+    environment:
+      VECTOR_BACKEND: qdrant
+      QDRANT_URL: http://qdrant:6333
+      PYTHONUNBUFFERED: "1"
+      # Ensure API always has a resolvable WordPress URL
+      WORDPRESS_URL: ${WORDPRESS_LOCAL_URL:-https://host.docker.internal:8445}
+    volumes:
+      - ./:/app
+    ports:
+      - "8088:8088"
+    depends_on:
+      qdrant:
+        condition: service_started
+      vectors:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8088/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: blog-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    # No healthcheck: container runs fast; API will retry if needed
+
+  vectors:
+    image: pgvector/pgvector:pg16
+    container_name: blog-vectors
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vectors
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"  # avoid clashing with a local Postgres
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: blog-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--port", "6379"]
+    ports:
+      - "6384:6379"  # Different port from main site's Redis (6383)
+    volumes:
+      - redis_data:/data
+
+volumes:
+  qdrant_storage:
+  pg_data:
+  redis_data:
