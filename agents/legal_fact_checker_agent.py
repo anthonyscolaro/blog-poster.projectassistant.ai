@@ -484,7 +484,7 @@ class LegalFactCheckerAgent:
         
         return required_disclaimers
     
-    def _generate_corrections(self, results: List[VerificationResult]) -> List[Dict[str, str]]:
+    def _generate_corrections(self, results: List[VerificationResult]) -> List[Dict[str, Any]]:
         """Generate suggested corrections for incorrect claims"""
         corrections = []
         
@@ -494,14 +494,14 @@ class LegalFactCheckerAgent:
                     "original": result.claim.text,
                     "corrected": result.correct_statement,
                     "explanation": result.explanation,
-                    "citations": result.legal_citations
+                    "citations": ", ".join(result.legal_citations) if result.legal_citations else ""
                 })
             elif result.status == VerificationStatus.PARTIALLY_CORRECT:
                 corrections.append({
                     "original": result.claim.text,
                     "suggestion": "Consider clarifying this statement",
                     "explanation": result.explanation,
-                    "citations": result.legal_citations
+                    "citations": ", ".join(result.legal_citations) if result.legal_citations else ""
                 })
         
         return corrections

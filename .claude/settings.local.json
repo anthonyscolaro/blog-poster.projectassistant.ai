@@ -6,7 +6,8 @@
       "Bash(curl:*)",
       "Bash(curl -s -u:*)",
       "Bash(chmod:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
