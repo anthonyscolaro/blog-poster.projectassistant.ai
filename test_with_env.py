@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Test script to generate an article with Anthropic API and publish to WordPress
+Test script that can use any environment file (.env.local, .env.prod, etc.)
+Usage: python test_with_env.py [env_file]
+Default: .env.local
 """
+import sys
 import os
 import asyncio
 import httpx
@@ -10,13 +13,24 @@ from datetime import datetime
 from dotenv import load_dotenv
 from anthropic import Anthropic
 
+# Determine which env file to use
+env_file = sys.argv[1] if len(sys.argv) > 1 else '.env.local'
+print(f"🔧 Using environment file: {env_file}")
+
 # Load environment variables
-load_dotenv('.env.local')
+if not os.path.exists(env_file):
+    print(f"❌ Environment file {env_file} not found")
+    exit(1)
+
+load_dotenv(env_file, override=True)
 
 # Get configuration from environment variables
 WP_URL = os.getenv('WORDPRESS_URL')
 USERNAME = os.getenv('WP_USERNAME')
 PASSWORD = os.getenv('WP_APP_PASSWORD')
+
+print(f"📍 Target WordPress: {WP_URL}")
+print(f"👤 Username: {USERNAME}")
 
 # Validate required environment variables
 if not all([WP_URL, USERNAME, PASSWORD]):
@@ -29,10 +43,9 @@ if not all([WP_URL, USERNAME, PASSWORD]):
         print("   WP_APP_PASSWORD not set")
     exit(1)
 
-
 async def generate_article_with_anthropic():
     """Generate an article using Anthropic API"""
-    print("=" * 60)
+    print("\n" + "=" * 60)
     print("📝 Generating Article with Anthropic API")
     print("=" * 60)
     
@@ -49,12 +62,12 @@ async def generate_article_with_anthropic():
         # Generate article about service dogs
         print("\n⏳ Generating article (this may take 20-30 seconds)...")
         
-        prompt = """Write a comprehensive, SEO-optimized blog article about "How to Train a Service Dog for Anxiety Support" that includes:
+        prompt = """Write a comprehensive, SEO-optimized blog article about "Understanding ADA Service Dog Requirements" that includes:
 
 1. An engaging title (under 60 characters)
-2. A meta description (under 155 characters)
+2. A meta description (under 155 characters)  
 3. The full article content (1500-2000 words) in HTML format
-4. Focus on practical tips and ADA compliance
+4. Focus on practical ADA compliance information
 5. Include proper H2 and H3 headings
 6. Add internal structure with lists and sections
 
@@ -66,7 +79,7 @@ Format your response as JSON with these fields:
   "slug": "url-friendly-slug"
 }
 
-Make it informative, practical, and helpful for people looking to train service dogs for anxiety support."""
+Make it informative and helpful for people who need to understand ADA service dog requirements."""
 
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",
@@ -94,18 +107,18 @@ Make it informative, practical, and helpful for people looking to train service 
             else:
                 # Fallback: create structured data from response
                 article_data = {
-                    "title": "Training a Service Dog for Anxiety Support",
-                    "meta_description": "Learn how to train a service dog for anxiety support with our comprehensive guide covering ADA requirements, training techniques, and practical tips.",
+                    "title": "Understanding ADA Service Dog Requirements",
+                    "meta_description": "Learn the essential ADA requirements for service dogs. Complete guide to legal rights, training standards, and compliance.",
                     "content": content,
-                    "slug": f"service-dog-training-{datetime.now().strftime('%Y%m%d')}"
+                    "slug": f"ada-service-dog-requirements-{datetime.now().strftime('%Y%m%d')}"
                 }
         except json.JSONDecodeError:
             # If JSON parsing fails, use the content as-is
             article_data = {
-                "title": "Training a Service Dog for Anxiety Support",
-                "meta_description": "Learn how to train a service dog for anxiety support with our comprehensive guide.",
+                "title": "Understanding ADA Service Dog Requirements",
+                "meta_description": "Learn the essential ADA requirements for service dogs.",
                 "content": content,
-                "slug": f"service-dog-training-{datetime.now().strftime('%Y%m%d')}"
+                "slug": f"ada-service-dog-{datetime.now().strftime('%Y%m%d')}"
             }
         
         print(f"\n✅ Article generated successfully!")
@@ -119,12 +132,14 @@ Make it informative, practical, and helpful for people looking to train service 
         print(f"\n❌ Error generating article: {str(e)}")
         return None
 
-
 async def publish_to_wordpress(article_data):
     """Publish the generated article to WordPress"""
     print("\n" + "=" * 60)
     print("📤 Publishing to WordPress")
     print("=" * 60)
+    
+    print(f"WordPress URL: {WP_URL}")
+    print(f"Username: {USERNAME}")
     
     # Create auth header
     credentials = f"{USERNAME}:{PASSWORD}"
@@ -134,7 +149,7 @@ async def publish_to_wordpress(article_data):
     post_data = {
         "title": article_data["title"],
         "content": article_data["content"],
-        "status": "draft",
+        "status": "draft",  # Always create as draft for safety
         "slug": article_data["slug"],
         "excerpt": article_data["meta_description"]
     }
@@ -142,8 +157,11 @@ async def publish_to_wordpress(article_data):
     print(f"Publishing: {post_data['title']}")
     print(f"Status: {post_data['status']}")
     
+    # Determine SSL verification based on URL
+    verify_ssl = not WP_URL.startswith('http://localhost')
+    
     # Make the request
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, verify=verify_ssl) as client:
         try:
             response = await client.post(
                 f"{WP_URL}/wp-json/wp/v2/posts",
@@ -173,14 +191,16 @@ async def publish_to_wordpress(article_data):
             print(f"\n❌ Error publishing: {e}")
             return None
 
-
 async def main():
     """Run the complete test"""
-    print("\n🚀 Blog Poster - Generate & Publish Test")
+    env_type = "PRODUCTION" if "prod" in env_file else "LOCAL"
+    
+    print(f"\n🚀 Blog Poster - {env_type} Test")
     print("=" * 60)
     print("This test will:")
     print("1. Generate an article using Anthropic Claude API")
     print("2. Publish it to WordPress as a draft")
+    print(f"3. Target: {WP_URL}")
     print("=" * 60)
     
     # Step 1: Generate article
@@ -195,21 +215,21 @@ async def main():
     
     if result:
         print("\n" + "=" * 60)
-        print("🎉 SUCCESS! Complete workflow tested:")
+        print(f"🎉 SUCCESS! {env_type} posting tested:")
         print("✅ Anthropic API key is working")
-        print("✅ Article generation is working")
+        print("✅ Article generation is working") 
         print("✅ WordPress publishing is working")
-        print("\nYou can now:")
-        print("1. View the draft in WordPress admin")
-        print("2. Run the full automated workflow")
-        print("3. Configure scheduled publishing")
+        print("\nNext steps:")
+        print("1. Review the draft in WordPress admin")
+        print("2. Publish the article if it looks good")
+        print("3. Run the full automated workflow for regular posting")
     else:
         print("\n" + "=" * 60)
-        print("⚠️ Publishing failed. Please check:")
-        print("1. WordPress is running at http://localhost:8084")
-        print("2. JSON Basic Authentication plugin is activated")
-        print("3. Credentials are correct")
-
+        print(f"⚠️ {env_type} publishing failed. Please check:")
+        print(f"1. WordPress URL is accessible: {WP_URL}")
+        print("2. Credentials are correct")
+        print("3. WordPress REST API is enabled")
+        print("4. User has publishing permissions")
 
 if __name__ == "__main__":
     asyncio.run(main())

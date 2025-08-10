@@ -1,35 +1,22 @@
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+RUN apt-get update && apt-get install -y build-essential curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+COPY requirements-dashboard.txt requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements-dashboard.txt
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application files
 COPY . .
 
-# Create data directories
-RUN mkdir -p /data/competitor-content/raw \
-    /data/competitor-content/md \
-    /data/competitor-content/metadata \
-    /data/generated-articles/drafts \
-    /data/generated-articles/published \
-    /data/logs/monitoring \
-    /data/logs/generation \
-    /data/logs/publishing \
-    /data/backups
+RUN mkdir -p templates static config data/articles data/logs
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8088/docs || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 CMD curl -f http://localhost:8088/health || exit 1
 
-# Run the application
-CMD ["uvicorn", "fast_api_tool_shim_pydantic_schemas_for_article_generation_agent:app", "--host", "0.0.0.0", "--port", "8088"]
+EXPOSE 8088
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8088", "--reload"]

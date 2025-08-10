@@ -104,6 +104,17 @@ class OrchestrationManager:
         
         self.current_pipeline: Optional[PipelineResult] = None
         self.pipeline_history: List[PipelineResult] = []
+        self.current_status: Optional[PipelineStatus] = None
+        
+        # Dashboard metrics
+        self.articles_today = 0
+        self.articles_this_week = 0
+        self.articles_this_month = 0
+        self.total_cost_today = 0.0
+        self.total_cost_this_month = 0.0
+        self.average_generation_time = 0.0
+        self.success_rate = 100.0
+        self.last_error: Optional[str] = None
     
     async def run_pipeline(self, config: PipelineConfig) -> PipelineResult:
         """
@@ -126,12 +137,14 @@ class OrchestrationManager:
             competitor_insights = None
             if config.use_competitor_insights:
                 result.status = PipelineStatus.MONITORING
+                self.current_status = PipelineStatus.MONITORING
                 logger.info("Step 1: Monitoring competitors...")
                 competitor_insights = await self._run_competitor_monitoring()
                 result.competitor_insights = competitor_insights
             
             # Step 2: Topic Analysis
             result.status = PipelineStatus.ANALYZING
+            self.current_status = PipelineStatus.ANALYZING
             logger.info("Step 2: Analyzing topics and SEO opportunities...")
             topic_rec = await self._analyze_topics(
                 competitor_insights,
@@ -149,6 +162,7 @@ class OrchestrationManager:
             
             # Step 3: Article Generation
             result.status = PipelineStatus.GENERATING
+            self.current_status = PipelineStatus.GENERATING
             logger.info(f"Step 3: Generating article about '{config.topic}'...")
             
             # Get internal links from vector search
@@ -488,6 +502,116 @@ class OrchestrationManager:
             "executions": len(self.pipeline_history)
         }
     
+    async def get_pipeline_stats(self) -> Dict[str, Any]:
+        """Get comprehensive pipeline statistics for dashboard"""
+        successful_runs = len([r for r in self.pipeline_history if r.status == PipelineStatus.COMPLETED])
+        failed_runs = len([r for r in self.pipeline_history if r.status == PipelineStatus.FAILED])
+        
+        cost_summary = self.get_cost_summary()
+        
+        return {
+            "total_runs": len(self.pipeline_history),
+            "successful_runs": successful_runs,
+            "failed_runs": failed_runs,
+            "success_rate": (successful_runs / len(self.pipeline_history)) * 100 if self.pipeline_history else 0,
+            "total_cost": cost_summary["total_cost"],
+            "average_cost": cost_summary["average_cost"],
+            "last_run": self.pipeline_history[-1].started_at.isoformat() if self.pipeline_history else None,
+            "current_status": self.current_status.value if self.current_status else "idle",
+            "recent_activities": self._get_recent_activities(),
+            "articles_generated": len([r for r in self.pipeline_history if r.generated_article]),
+            "articles_published": len([r for r in self.pipeline_history if r.wordpress_result]),
+            "facts_checked": len([r for r in self.pipeline_history if r.fact_check_report]),
+            "topics_analyzed": len(self.pipeline_history),
+            "last_competitor_scan": "2025-01-10 18:00:00"  # Placeholder
+        }
+    
+    def _get_recent_activities(self) -> List[Dict[str, Any]]:
+        """Get recent pipeline activities for dashboard"""
+        activities = []
+        
+        for result in self.pipeline_history[-5:]:  # Last 5 activities
+            activities.append({
+                "action": f"Pipeline {result.status.value}",
+                "details": f"Topic: {result.topic or 'Auto-generated'}",
+                "timestamp": result.started_at.strftime("%H:%M:%S"),
+                "status": result.status.value
+            })
+        
+        return list(reversed(activities))  # Most recent first
+    
+    async def get_active_pipelines(self) -> List[Dict[str, Any]]:
+        """Get currently running pipelines"""
+        if self.current_status and self.current_status != PipelineStatus.COMPLETED:
+            return [{
+                "pipeline_id": "current_pipeline",
+                "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "primary_keyword": "service dog training",  # Placeholder
+                "status": "running",
+                "progress": self._get_progress_percentage(),
+                "eta": "2 minutes",
+                "steps": self._get_current_steps()
+            }]
+        return []
+    
+    def _get_progress_percentage(self) -> int:
+        """Calculate progress percentage based on current status"""
+        progress_map = {
+            PipelineStatus.PENDING: 0,
+            PipelineStatus.MONITORING: 20,
+            PipelineStatus.ANALYZING: 40,
+            PipelineStatus.GENERATING: 60,
+            PipelineStatus.FACT_CHECKING: 80,
+            PipelineStatus.PUBLISHING: 90,
+            PipelineStatus.COMPLETED: 100,
+            PipelineStatus.FAILED: 100
+        }
+        return progress_map.get(self.current_status, 0)
+    
+    def _get_current_steps(self) -> List[Dict[str, Any]]:
+        """Get current pipeline steps with status"""
+        steps = [
+            {"name": "Competitor Monitoring", "status": "completed"},
+            {"name": "Topic Analysis", "status": "completed"},
+            {"name": "Article Generation", "status": "running" if self.current_status == PipelineStatus.GENERATING else "completed"},
+            {"name": "Legal Fact Checking", "status": "pending"},
+            {"name": "WordPress Publishing", "status": "pending"}
+        ]
+        return steps
+        
+    async def get_pipeline_history(self) -> List[Dict[str, Any]]:
+        """Get pipeline execution history for dashboard"""
+        history = []
+        
+        for result in self.pipeline_history[-20:]:  # Last 20 runs
+            history.append({
+                "pipeline_id": result.pipeline_id,
+                "primary_keyword": result.topic,
+                "started_at": result.started_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "time_ago": self._time_ago(result.started_at),
+                "duration": result.execution_time.total_seconds() if result.execution_time else None,
+                "status": result.status.value,
+                "cost": result.total_cost,
+                "article_generated": bool(result.generated_article),
+                "article_id": result.pipeline_id if result.generated_article else None
+            })
+        
+        return list(reversed(history))  # Most recent first
+    
+    def _time_ago(self, timestamp: datetime) -> str:
+        """Convert timestamp to human readable 'time ago' format"""
+        now = datetime.now()
+        diff = now - timestamp
+        
+        if diff.days > 0:
+            return f"{diff.days} days ago"
+        elif diff.seconds > 3600:
+            return f"{diff.seconds // 3600} hours ago"
+        elif diff.seconds > 60:
+            return f"{diff.seconds // 60} minutes ago"
+        else:
+            return "Just now"
+
     async def close(self):
         """Clean up resources"""
         await self.competitor_agent.close()

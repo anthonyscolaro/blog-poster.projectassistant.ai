@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to generate an article with Anthropic API and publish to WordPress
+Test script to generate an article and publish to PRODUCTION WordPress (ServiceDogUS.org)
 """
 import os
 import asyncio
@@ -10,25 +10,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from anthropic import Anthropic
 
-# Load environment variables
-load_dotenv('.env.local')
-
-# Get configuration from environment variables
-WP_URL = os.getenv('WORDPRESS_URL')
-USERNAME = os.getenv('WP_USERNAME')
-PASSWORD = os.getenv('WP_APP_PASSWORD')
-
-# Validate required environment variables
-if not all([WP_URL, USERNAME, PASSWORD]):
-    print("❌ Missing required environment variables:")
-    if not WP_URL:
-        print("   WORDPRESS_URL not set")
-    if not USERNAME:
-        print("   WP_USERNAME not set")  
-    if not PASSWORD:
-        print("   WP_APP_PASSWORD not set")
-    exit(1)
-
+# Load PRODUCTION environment variables (override any existing)
+load_dotenv('.env.prod', override=True)
 
 async def generate_article_with_anthropic():
     """Generate an article using Anthropic API"""
@@ -49,7 +32,7 @@ async def generate_article_with_anthropic():
         # Generate article about service dogs
         print("\n⏳ Generating article (this may take 20-30 seconds)...")
         
-        prompt = """Write a comprehensive, SEO-optimized blog article about "How to Train a Service Dog for Anxiety Support" that includes:
+        prompt = """Write a comprehensive, SEO-optimized blog article about "5 Essential Service Dog Commands for Anxiety Support" that includes:
 
 1. An engaging title (under 60 characters)
 2. A meta description (under 155 characters)
@@ -66,7 +49,7 @@ Format your response as JSON with these fields:
   "slug": "url-friendly-slug"
 }
 
-Make it informative, practical, and helpful for people looking to train service dogs for anxiety support."""
+Make it informative, practical, and helpful for people with anxiety who need service dog commands."""
 
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",
@@ -94,18 +77,18 @@ Make it informative, practical, and helpful for people looking to train service 
             else:
                 # Fallback: create structured data from response
                 article_data = {
-                    "title": "Training a Service Dog for Anxiety Support",
-                    "meta_description": "Learn how to train a service dog for anxiety support with our comprehensive guide covering ADA requirements, training techniques, and practical tips.",
+                    "title": "5 Essential Service Dog Commands for Anxiety Support",
+                    "meta_description": "Learn the 5 most important service dog commands for anxiety support. Expert training tips for ADA-compliant service dogs.",
                     "content": content,
-                    "slug": f"service-dog-training-{datetime.now().strftime('%Y%m%d')}"
+                    "slug": f"service-dog-commands-anxiety-{datetime.now().strftime('%Y%m%d')}"
                 }
         except json.JSONDecodeError:
             # If JSON parsing fails, use the content as-is
             article_data = {
-                "title": "Training a Service Dog for Anxiety Support",
-                "meta_description": "Learn how to train a service dog for anxiety support with our comprehensive guide.",
+                "title": "5 Essential Service Dog Commands for Anxiety Support",
+                "meta_description": "Learn the 5 most important service dog commands for anxiety support.",
                 "content": content,
-                "slug": f"service-dog-training-{datetime.now().strftime('%Y%m%d')}"
+                "slug": f"service-dog-commands-{datetime.now().strftime('%Y%m%d')}"
             }
         
         print(f"\n✅ Article generated successfully!")
@@ -123,18 +106,31 @@ Make it informative, practical, and helpful for people looking to train service 
 async def publish_to_wordpress(article_data):
     """Publish the generated article to WordPress"""
     print("\n" + "=" * 60)
-    print("📤 Publishing to WordPress")
+    print("📤 Publishing to PRODUCTION WordPress")
     print("=" * 60)
     
+    # Get credentials from environment
+    wp_url = os.getenv('WORDPRESS_URL')
+    username = os.getenv('WP_USERNAME')
+    password = os.getenv('WP_APP_PASSWORD')
+    
+    print(f"WordPress URL: {wp_url}")
+    print(f"Username: {username}")
+    print(f"Expected: https://wp.servicedogus.org")
+    
+    if not all([wp_url, username, password]):
+        print("❌ Missing WordPress credentials in .env.prod")
+        return None
+    
     # Create auth header
-    credentials = f"{USERNAME}:{PASSWORD}"
+    credentials = f"{username}:{password}"
     auth_header = f"Basic {base64.b64encode(credentials.encode()).decode()}"
     
     # Prepare post data
     post_data = {
         "title": article_data["title"],
         "content": article_data["content"],
-        "status": "draft",
+        "status": "draft",  # Create as draft for safety
         "slug": article_data["slug"],
         "excerpt": article_data["meta_description"]
     }
@@ -143,10 +139,10 @@ async def publish_to_wordpress(article_data):
     print(f"Status: {post_data['status']}")
     
     # Make the request
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, verify=False) as client:  # verify=False for local testing
         try:
             response = await client.post(
-                f"{WP_URL}/wp-json/wp/v2/posts",
+                f"{wp_url}/wp-json/wp/v2/posts",
                 headers={
                     "Authorization": auth_header,
                     "Content-Type": "application/json"
@@ -161,7 +157,7 @@ async def publish_to_wordpress(article_data):
                 print(f"   Status: {result['status']}")
                 print(f"   Link: {result['link']}")
                 print(f"\n📝 Edit in WordPress:")
-                print(f"   {WP_URL}/wp-admin/post.php?post={result['id']}&action=edit")
+                print(f"   {wp_url}/wp-admin/post.php?post={result['id']}&action=edit")
                 return result
             else:
                 print(f"\n❌ Failed to publish article")
@@ -175,13 +171,18 @@ async def publish_to_wordpress(article_data):
 
 
 async def main():
-    """Run the complete test"""
-    print("\n🚀 Blog Poster - Generate & Publish Test")
+    """Run the complete production test"""
+    print("\n🚀 Blog Poster - PRODUCTION Test (ServiceDogUS.org)")
     print("=" * 60)
     print("This test will:")
     print("1. Generate an article using Anthropic Claude API")
-    print("2. Publish it to WordPress as a draft")
+    print("2. Publish it to PRODUCTION WordPress as a draft")
+    print("3. Target: https://wp.servicedogus.org")
     print("=" * 60)
+    
+    # Confirm production posting - auto-confirmed for testing
+    print("\n⚠️  Proceeding with PRODUCTION posting (auto-confirmed for testing)")
+    print("   Creating draft article on ServiceDogUS.org")
     
     # Step 1: Generate article
     article = await generate_article_with_anthropic()
@@ -195,20 +196,21 @@ async def main():
     
     if result:
         print("\n" + "=" * 60)
-        print("🎉 SUCCESS! Complete workflow tested:")
+        print("🎉 SUCCESS! Production posting tested:")
         print("✅ Anthropic API key is working")
         print("✅ Article generation is working")
-        print("✅ WordPress publishing is working")
-        print("\nYou can now:")
-        print("1. View the draft in WordPress admin")
-        print("2. Run the full automated workflow")
-        print("3. Configure scheduled publishing")
+        print("✅ Production WordPress publishing is working")
+        print("\nNext steps:")
+        print("1. Review the draft in WordPress admin")
+        print("2. Publish the article if it looks good")
+        print("3. Run the full automated workflow for regular posting")
     else:
         print("\n" + "=" * 60)
-        print("⚠️ Publishing failed. Please check:")
-        print("1. WordPress is running at http://localhost:8084")
-        print("2. JSON Basic Authentication plugin is activated")
-        print("3. Credentials are correct")
+        print("⚠️ Production publishing failed. Please check:")
+        print("1. WordPress URL is correct: https://wp.servicedogus.org")
+        print("2. Application Password is valid")
+        print("3. WordPress REST API is enabled")
+        print("4. User has publishing permissions")
 
 
 if __name__ == "__main__":

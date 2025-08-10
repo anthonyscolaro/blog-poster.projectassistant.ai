@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-diagram-3"></i> Pipeline Monitor</h2>
+            <div>
+                <button class="btn btn-primary" onclick="runPipeline()">
+                    <i class="bi bi-play-circle"></i> Run Pipeline
+                </button>
+                <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Pipelines -->
+{% if active_pipelines %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-play-circle-fill"></i> Active Pipelines ({{ active_pipelines|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for pipeline in active_pipelines %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>Pipeline ID: {{ pipeline.pipeline_id }}</h6>
+                                <p class="text-muted">Started: {{ pipeline.started_at }} | Keyword: {{ pipeline.primary_keyword }}</p>
+                                
+                                <!-- Progress Steps -->
+                                <div class="pipeline-steps">
+                                    {% for step in pipeline.steps %}
+                                    <div class="pipeline-step step-{{ step.status }}">
+                                        <strong>{{ step.name }}</strong>
+                                        <div class="small">
+                                            Status: {{ step.status }} 
+                                            {% if step.duration %}| Duration: {{ step.duration }}s{% endif %}
+                                            {% if step.cost %}| Cost: ${{ "%.4f"|format(step.cost) }}{% endif %}
+                                        </div>
+                                        {% if step.error %}
+                                        <div class="small text-danger">Error: {{ step.error }}</div>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 text-end">
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ pipeline.progress }}%;" 
+                                         aria-valuenow="{{ pipeline.progress }}" 
+                                         aria-valuemin="0" aria-valuemax="100">
+                                    </div>
+                                </div>
+                                <div><strong>{{ pipeline.progress }}% Complete</strong></div>
+                                <div class="small text-muted">ETA: {{ pipeline.eta or 'Calculating...' }}</div>
+                                
+                                {% if pipeline.status == 'running' %}
+                                <button class="btn btn-danger btn-sm mt-2" onclick="stopPipeline('{{ pipeline.pipeline_id }}')">
+                                    <i class="bi bi-stop-circle"></i> Stop
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Pipeline History -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history"></i> Pipeline History (Last 20 Runs)
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if pipeline_history %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Pipeline ID</th>
+                                <th>Keyword</th>
+                                <th>Started</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Cost</th>
+                                <th>Article</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for run in pipeline_history %}
+                            <tr>
+                                <td>
+                                    <code>{{ run.pipeline_id[:8] }}...</code>
+                                </td>
+                                <td>
+                                    <strong>{{ run.primary_keyword or 'Auto-generated' }}</strong>
+                                </td>
+                                <td>
+                                    {{ run.started_at }}
+                                    <div class="small text-muted">{{ run.time_ago }}</div>
+                                </td>
+                                <td>
+                                    {% if run.duration %}
+                                        {{ run.duration }}s
+                                        <div class="small text-muted">
+                                            {% if run.duration < 30 %}
+                                                <span class="text-success">Fast</span>
+                                            {% elif run.duration < 60 %}
+                                                <span class="text-warning">Normal</span>
+                                            {% else %}
+                                                <span class="text-danger">Slow</span>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if run.status == 'completed' %}
+                                        <span class="status-badge status-healthy">Completed</span>
+                                    {% elif run.status == 'failed' %}
+                                        <span class="status-badge status-error">Failed</span>
+                                    {% elif run.status == 'running' %}
+                                        <span class="status-badge status-warning">Running</span>
+                                    {% else %}
+                                        <span class="status-badge status-warning">{{ run.status|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if run.cost %}
+                                        ${{ "%.4f"|format(run.cost) }}
+                                        <div class="small text-muted">
+                                            {% if run.cost < 0.05 %}
+                                                <span class="text-success">Low</span>
+                                            {% elif run.cost < 0.15 %}
+                                                <span class="text-warning">Normal</span>
+                                            {% else %}
+                                                <span class="text-danger">High</span>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">$0.00</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if run.article_generated %}
+                                        <a href="/articles/{{ run.article_id }}" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-file-text"></i> View
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">None</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-outline-secondary btn-sm" 
+                                                onclick="viewPipelineDetails('{{ run.pipeline_id }}')"
+                                                title="View Details">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        {% if run.status == 'failed' %}
+                                        <button class="btn btn-outline-warning btn-sm"
+                                                onclick="retryPipeline('{{ run.pipeline_id }}')"
+                                                title="Retry">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-outline-danger btn-sm"
+                                                onclick="deletePipeline('{{ run.pipeline_id }}')"
+                                                title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-diagram-3 fs-1"></i>
+                    <h4 class="mt-3">No Pipeline Runs Yet</h4>
+                    <p>Start your first pipeline to see the results here.</p>
+                    <button class="btn btn-primary" onclick="runPipeline()">
+                        <i class="bi bi-play-circle"></i> Run First Pipeline
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pipeline Stats -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="metric-value text-primary">{{ pipeline_history|length }}</div>
+                <div class="metric-label">Total Runs</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="metric-value text-success">
+                    {{ pipeline_history|selectattr("status", "equalto", "completed")|list|length }}
+                </div>
+                <div class="metric-label">Successful</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="metric-value text-danger">
+                    {{ pipeline_history|selectattr("status", "equalto", "failed")|list|length }}
+                </div>
+                <div class="metric-label">Failed</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <div class="metric-value text-info">
+                    {% set avg_duration = pipeline_history|selectattr("duration")|map(attribute="duration")|list %}
+                    {% if avg_duration %}
+                        {{ "%.1f"|format(avg_duration|sum / avg_duration|length) }}s
+                    {% else %}
+                        0s
+                    {% endif %}
+                </div>
+                <div class="metric-label">Avg Duration</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Pipeline Details -->
+<div class="modal fade" id="pipelineDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pipeline Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="pipelineDetailsContent">
+                Loading...
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function stopPipeline(pipelineId) {
+    if (confirm('Stop this pipeline?')) {
+        try {
+            const response = await fetch(`/pipeline/${pipelineId}/stop`, { method: 'POST' });
+            if (response.ok) {
+                alert('Pipeline stopped');
+                window.location.reload();
+            } else {
+                alert('Failed to stop pipeline');
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+}
+
+async function retryPipeline(pipelineId) {
+    if (confirm('Retry this pipeline?')) {
+        try {
+            const response = await fetch(`/pipeline/${pipelineId}/retry`, { method: 'POST' });
+            if (response.ok) {
+                alert('Pipeline restarted');
+                window.location.reload();
+            } else {
+                alert('Failed to retry pipeline');
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+}
+
+async function deletePipeline(pipelineId) {
+    if (confirm('Delete this pipeline run?')) {
+        try {
+            const response = await fetch(`/pipeline/${pipelineId}`, { method: 'DELETE' });
+            if (response.ok) {
+                alert('Pipeline deleted');
+                window.location.reload();
+            } else {
+                alert('Failed to delete pipeline');
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+}
+
+async function viewPipelineDetails(pipelineId) {
+    try {
+        const response = await fetch(`/pipeline/${pipelineId}/details`);
+        const details = await response.json();
+        
+        document.getElementById('pipelineDetailsContent').innerHTML = `
+            <h6>Pipeline ID: ${pipelineId}</h6>
+            <p><strong>Status:</strong> ${details.status}</p>
+            <p><strong>Started:</strong> ${details.started_at}</p>
+            <p><strong>Keyword:</strong> ${details.primary_keyword || 'Auto-generated'}</p>
+            
+            <h6 class="mt-3">Step Details:</h6>
+            ${details.steps.map(step => `
+                <div class="pipeline-step step-${step.status} mb-2">
+                    <strong>${step.name}</strong>
+                    <div>Status: ${step.status}</div>
+                    ${step.duration ? `<div>Duration: ${step.duration}s</div>` : ''}
+                    ${step.cost ? `<div>Cost: $${step.cost.toFixed(4)}</div>` : ''}
+                    ${step.error ? `<div class="text-danger">Error: ${step.error}</div>` : ''}
+                    ${step.output ? `<div class="small mt-2">Output: ${step.output.substring(0, 200)}...</div>` : ''}
+                </div>
+            `).join('')}
+        `;
+        
+        new bootstrap.Modal(document.getElementById('pipelineDetailsModal')).show();
+    } catch (error) {
+        alert('Failed to load pipeline details');
+    }
+}
+
+// Auto-refresh every 10 seconds for active pipelines
+setInterval(() => {
+    const activeCount = {{ active_pipelines|length if active_pipelines else 0 }};
+    if (activeCount > 0) {
+        window.location.reload();
+    }
+}, 10000);
+</script>
+{% endblock %}

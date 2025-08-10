@@ -24,8 +24,11 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, HttpUrl, Field, validator
 
 # Set up logging
@@ -278,7 +281,7 @@ claude = ClaudeClient()
 # ------------------------------
 # FastAPI App
 # ------------------------------
-app = FastAPI(title="Article Agent Tool Shim")
+app = FastAPI(title="Blog Poster Dashboard")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -287,12 +290,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Setup templates and static files for dashboard
+templates = Jinja2Templates(directory="templates")
+
+# Create directories if they don't exist
+import os
+os.makedirs("templates", exist_ok=True)
+os.makedirs("static", exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 try:
     # Include the WordPress publishing router providing /publish/wp
     from fast_api_tool_shim_pydantic_schemas_for_article_generation_agent_updated import (
         router as publish_router,
     )
     app.include_router(publish_router)
+except Exception:
+    pass
+
+# Include configuration profile management API
+try:
+    from config_api import router as config_router
+    app.include_router(config_router)
 except Exception:
     # Router is optional; the app can run without it if dependencies are missing
     publish_router = None  # type: ignore
@@ -1121,6 +1142,209 @@ async def delete_document(
         }
     else:
         raise HTTPException(500, "Failed to delete document")
+
+# ------------------------------
+# Dashboard Routes
+# ------------------------------
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard_home(request: Request):
+    """Main dashboard page"""
+    try:
+        # Get system status
+        orchestration_status = get_orchestration_manager()
+        vector_manager = get_vector_manager()
+        
+        # Get basic stats
+        pipeline_stats = await orchestration_status.get_pipeline_stats() if orchestration_status else {}
+        vector_stats = await vector_manager.get_collection_stats() if vector_manager else {}
+        
+        context = {
+            "request": request,
+            "title": "Blog Poster Dashboard",
+            "pipeline_stats": pipeline_stats,
+            "vector_stats": vector_stats,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("dashboard.html", context)
+    except Exception as e:
+        logger.error(f"Dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/pipeline", response_class=HTMLResponse)
+async def pipeline_dashboard(request: Request):
+    """Pipeline monitoring page"""
+    try:
+        orchestration_status = get_orchestration_manager()
+        
+        # Get pipeline history and current status
+        pipeline_history = await orchestration_status.get_pipeline_history() if orchestration_status else []
+        active_pipelines = await orchestration_status.get_active_pipelines() if orchestration_status else []
+        
+        context = {
+            "request": request,
+            "title": "Pipeline Monitor",
+            "pipeline_history": pipeline_history[:20],  # Last 20 runs
+            "active_pipelines": active_pipelines,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("pipeline.html", context)
+    except Exception as e:
+        logger.error(f"Pipeline dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/articles", response_class=HTMLResponse)
+async def articles_dashboard(request: Request):
+    """Article management page"""
+    try:
+        # Get recent articles from cache/database
+        import glob
+        import json as json_lib
+        
+        articles = []
+        article_files = glob.glob("data/articles/*.json")
+        article_files.sort(key=os.path.getmtime, reverse=True)
+        
+        for file_path in article_files[:50]:  # Last 50 articles
+            try:
+                with open(file_path, 'r') as f:
+                    article_data = json_lib.load(f)
+                    article_data['file_path'] = file_path
+                    article_data['created_at'] = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    articles.append(article_data)
+            except Exception:
+                continue
+        
+        context = {
+            "request": request,
+            "title": "Article Management",
+            "articles": articles,
+            "total_articles": len(articles),
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("articles.html", context)
+    except Exception as e:
+        logger.error(f"Articles dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/health-dashboard", response_class=HTMLResponse)
+async def health_dashboard(request: Request):
+    """System health monitoring page"""
+    try:
+        # Check service health
+        health_data = {
+            "services": {},
+            "environment": {},
+            "metrics": {}
+        }
+        
+        # Check orchestration manager
+        try:
+            orchestration_status = get_orchestration_manager()
+            health_data["services"]["orchestration"] = "healthy" if orchestration_status else "down"
+        except:
+            health_data["services"]["orchestration"] = "error"
+        
+        # Check vector database
+        try:
+            vector_manager = get_vector_manager()
+            collections = await vector_manager.get_collection_stats() if vector_manager else {}
+            health_data["services"]["qdrant"] = "healthy" if collections else "down"
+            health_data["metrics"]["collections"] = collections
+        except:
+            health_data["services"]["qdrant"] = "error"
+        
+        # Check WordPress connection
+        try:
+            from wordpress_publisher import WordPressPublisher
+            wp_publisher = WordPressPublisher()
+            # This would need a health check method
+            health_data["services"]["wordpress"] = "unknown"
+        except:
+            health_data["services"]["wordpress"] = "error"
+        
+        # Check Bright Data
+        health_data["services"]["bright_data"] = "healthy" if os.getenv("BRIGHT_DATA_API_KEY") else "unknown"
+        
+        # Check Jina AI
+        health_data["services"]["jina"] = "healthy" if os.getenv("JINA_API_KEY") else "unknown"
+        
+        # Environment info
+        health_data["environment"] = {
+            "anthropic_key": "✓" if os.getenv("ANTHROPIC_API_KEY") else "✗",
+            "jina_key": "✓" if os.getenv("JINA_API_KEY") else "✗",
+            "bright_data_key": "✓" if os.getenv("BRIGHT_DATA_API_KEY") else "✗",
+            "wp_url": os.getenv("WORDPRESS_URL", "not set"),
+            "wp_user": os.getenv("WP_USERNAME", "not set")
+        }
+        
+        context = {
+            "request": request,
+            "title": "System Health",
+            "health_data": health_data,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("health.html", context)
+    except Exception as e:
+        logger.error(f"Health dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/config", response_class=HTMLResponse)
+async def config_dashboard(request: Request):
+    """Configuration profiles management page"""
+    try:
+        context = {
+            "request": request,
+            "title": "Configuration Profiles",
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("config-profiles.html", context)
+    except Exception as e:
+        logger.error(f"Config dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/config/legacy", response_class=HTMLResponse)
+async def legacy_config_dashboard(request: Request):
+    """Legacy configuration management page"""
+    try:
+        # Get current configuration
+        config_data = {
+            "wordpress": {
+                "url": os.getenv("WORDPRESS_URL", ""),
+                "username": os.getenv("WP_USERNAME", ""),
+                "auth_method": os.getenv("WP_AUTH_METHOD", "basic"),
+                "verify_ssl": os.getenv("WP_VERIFY_SSL", "true")
+            },
+            "content": {
+                "min_words": os.getenv("ARTICLE_MIN_WORDS", "1500"),
+                "max_words": os.getenv("ARTICLE_MAX_WORDS", "2500"),
+                "max_cost": os.getenv("MAX_COST_PER_ARTICLE", "15.00"),
+                "monthly_budget": os.getenv("MAX_MONTHLY_COST", "500.00")
+            },
+            "agents": {
+                "competitor_monitoring": os.getenv("ENABLE_COMPETITOR_MONITORING", "true") == "true",
+                "topic_analysis": os.getenv("ENABLE_TOPIC_ANALYSIS", "true") == "true",
+                "fact_checking": os.getenv("ENABLE_FACT_CHECKING", "true") == "true",
+                "auto_publish": os.getenv("ENABLE_AUTO_PUBLISH", "false") == "true"
+            }
+        }
+        
+        context = {
+            "request": request,
+            "title": "Configuration",
+            "config_data": config_data,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("config.html", context)
+    except Exception as e:
+        logger.error(f"Config dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
 
 # ------------------------------
 # Cleanup on shutdown
