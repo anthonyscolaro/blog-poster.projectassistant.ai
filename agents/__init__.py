@@ -10,9 +10,26 @@ from .competitor_monitoring_agent import (
     ContentGap
 )
 
+from .article_generation_agent import (
+    ArticleGenerationAgent,
+    GeneratedArticle,
+    SEORequirements,
+    ArticleOutline,
+    CostTracking,
+    LLMProvider
+)
+
 __all__ = [
+    # Competitor Monitoring
     "CompetitorMonitoringAgent",
     "CompetitorInsights", 
     "TrendingTopic",
-    "ContentGap"
+    "ContentGap",
+    # Article Generation
+    "ArticleGenerationAgent",
+    "GeneratedArticle",
+    "SEORequirements",
+    "ArticleOutline",
+    "CostTracking",
+    "LLMProvider"
 ]

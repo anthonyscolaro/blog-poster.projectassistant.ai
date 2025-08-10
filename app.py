@@ -22,7 +22,7 @@ import re
 import json
 import logging
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -314,62 +314,78 @@ class RunResponse(BaseModel):
 
 @app.post("/agent/run", response_model=RunResponse)
 async def run_agent(payload: InputsEnvelope):
-    """Kick off a single-shot generation. If the model asks for tools, resolve them, feed back, and return the final Markdown."""
-    # 1) Load system prompt from file or environment
-    system_prompt_file = os.getenv("SYSTEM_PROMPT_FILE")
-    if system_prompt_file and os.path.exists(system_prompt_file):
-        with open(system_prompt_file, 'r') as f:
-            system_prompt = f.read()
-    else:
-        system_prompt = os.getenv("SYSTEM_PROMPT", "(inject the system prompt from your initial.md here)")
-    first = await claude.complete(system_prompt, user_json=payload.dict())
+    """Generate a complete SEO-optimized article using the Article Generation Agent"""
+    try:
+        # Get or create article generation agent
+        from agents import ArticleGenerationAgent, SEORequirements
+        
+        agent = ArticleGenerationAgent()
+        
+        # Extract topic and keywords from payload
+        topic_rec = payload.topic_rec
+        topic = f"{topic_rec.primary_kw}: {topic_rec.rationale or 'Comprehensive Guide'}"
+        
+        # Create SEO requirements
+        seo_reqs = SEORequirements(
+            primary_keyword=topic_rec.primary_kw,
+            secondary_keywords=topic_rec.secondary_kws[:5],  # Limit to 5 secondary keywords
+            min_words=payload.constraints.min_words,
+            max_words=payload.constraints.max_words,
+            internal_links_count=3,
+            external_links_count=2
+        )
+        
+        # Get competitor insights if available
+        competitor_insights = None
+        if hasattr(payload, 'evidence') and payload.evidence.competitor_chunks:
+            competitor_insights = {
+                "competitor_topics": list(set([chunk.text[:100] for chunk in payload.evidence.competitor_chunks[:5]])),
+                "serp_titles": [item.title for item in payload.evidence.serp_snapshot[:5]] if payload.evidence.serp_snapshot else []
+            }
+        
+        # Generate the article
+        logger.info(f"Generating article about: {topic}")
+        article = await agent.generate_article(
+            topic=topic,
+            seo_requirements=seo_reqs,
+            brand_voice=payload.brand_style.voice,
+            target_audience=payload.brand_style.audience,
+            additional_context=topic_rec.rationale,
+            competitor_insights=competitor_insights
+        )
+        
+        # Convert to expected output format
+        output = f"""# {article.title}
 
-    tool_calls = parse_tool_calls(first)
-    tool_results: List[ToolResult] = []
+{article.content_markdown}
 
-    if not tool_calls:
-        # return what we got (ideally the full Markdown)
-        return RunResponse(status="ok", output=first)
-
-    # 2) Resolve tools (sequentially for simplicity)
-    for call in tool_calls:
-        if call.name == "fact_check.search":
-            q = call.args.get("q", "")
-            jurisdiction = call.args.get("jurisdiction")
-            data = await fact_checker.search(q=q, jurisdiction=jurisdiction)
-            tool_results.append(ToolResult(name=call.name, payload=data))
-        elif call.name == "links.resolve":
-            section = call.args.get("section", "")
-            top = await linker.resolve(section_summary=section, candidates=payload.site_info.internal_link_candidates)
-            tool_results.append(ToolResult(name=call.name, payload={"links": top}))
-        elif call.name == "seo.lint":
-            # Expect frontmatter + markdown in args (JSON-encoded strings)
-            fm = call.args.get("frontmatter")
-            md = call.args.get("markdown", "")
-            if isinstance(fm, str):
-                try:
-                    fm = json.loads(fm)
-                except Exception:
-                    fm = {}
-            errs = await seo_lint.lint(frontmatter=fm or {}, markdown=md or "")
-            tool_results.append(ToolResult(name=call.name, payload={"violations": errs}))
-        else:
-            raise HTTPException(400, f"Unknown tool: {call.name}")
-
-    # 3) Feed result(s) back to Claude and get the final output
-    history = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": json.dumps(payload.dict(), default=str)},
-        {"role": "assistant", "content": first},
-    ]
-
-    # In a real chain, you might feed results one-by-one and loop until no <tool/> tags remain.
-    # For demo, bundle them.
-    final_text = await claude.continue_with_tool_result(history, tool_result=ToolResult(name="batch", payload={"results": [tr.dict() for tr in tool_results]}))
-
-    # Optional: run one last SEO lint here and, if violations, you could loop back for fixes
-
-    return RunResponse(status="ok", output=final_text, tool_calls=tool_calls, tool_results=tool_results)
+---
+**SEO Metadata:**
+- Meta Title: {article.meta_title}
+- Meta Description: {article.meta_description}
+- Primary Keyword: {article.primary_keyword}
+- Word Count: {article.word_count}
+- SEO Score: {article.seo_score:.1f}/100
+- Reading Time: {article.estimated_reading_time} minutes
+- Cost: ${article.cost_tracking.cost:.4f if article.cost_tracking else 0.0}
+"""
+        
+        return RunResponse(
+            status="success",
+            output=output,
+            tool_calls=[],
+            tool_results=[],
+            errors=[]
+        )
+    except Exception as e:
+        logger.error(f"Error generating article: {e}")
+        return RunResponse(
+            status="error",
+            output="",
+            tool_calls=[],
+            tool_results=[],
+            errors=[str(e)]
+        )
 
 
 # ------------------------------
@@ -389,10 +405,185 @@ async def lint_endpoint(req: LintRequest):
 
 
 # ------------------------------
-# Competitor Monitoring Endpoints
+# WordPress Publishing Endpoints
 # ------------------------------
-from agents import CompetitorMonitoringAgent, CompetitorInsights
+
+from wordpress_publisher import WordPressPublisher
+
+@app.post("/publish/wp")
+async def publish_to_wordpress(
+    title: str,
+    content: str,
+    status: Literal["draft", "publish"] = "draft",
+    slug: Optional[str] = None,
+    categories: Optional[List[int]] = None,
+    tags: Optional[List[int]] = None,
+    meta_title: Optional[str] = None,
+    meta_description: Optional[str] = None
+):
+    """
+    Publish an article to WordPress
+    
+    Args:
+        title: Article title
+        content: Article content (HTML or Markdown)
+        status: Post status (draft or publish)
+        slug: URL slug
+        categories: List of category IDs
+        tags: List of tag IDs
+        meta_title: SEO meta title
+        meta_description: SEO meta description
+    """
+    publisher = WordPressPublisher()
+    
+    # Test connection first
+    connected = await publisher.test_connection()
+    if not connected:
+        return {
+            "success": False,
+            "error": "Failed to connect to WordPress. Check credentials and URL."
+        }
+    
+    # Prepare meta fields if SEO data provided
+    meta = {}
+    if meta_title:
+        meta["meta_title"] = meta_title
+    if meta_description:
+        meta["meta_description"] = meta_description
+    
+    # Create the post
+    result = await publisher.create_post(
+        title=title,
+        content=content,
+        status=status,
+        slug=slug,
+        categories=categories,
+        tags=tags,
+        meta=meta if meta else None
+    )
+    
+    if result["success"]:
+        logger.info(f"Successfully published post {result['post_id']}: {result['edit_link']}")
+    else:
+        logger.error(f"Failed to publish post: {result.get('error')}")
+    
+    return result
+
+@app.get("/wordpress/test")
+async def test_wordpress_connection():
+    """Test WordPress connection and authentication"""
+    publisher = WordPressPublisher()
+    connected = await publisher.test_connection()
+    
+    if connected:
+        # Get categories and tags for reference
+        categories = await publisher.get_categories()
+        tags = await publisher.get_tags()
+        
+        return {
+            "connected": True,
+            "wordpress_url": publisher.wordpress_url,
+            "auth_method": publisher.auth_method,
+            "is_local": publisher.is_local,
+            "categories": [{"id": cat["id"], "name": cat["name"]} for cat in categories[:5]],
+            "tags": [{"id": tag["id"], "name": tag["name"]} for tag in tags[:5]]
+        }
+    else:
+        return {
+            "connected": False,
+            "error": "Failed to connect to WordPress",
+            "wordpress_url": publisher.wordpress_url,
+            "auth_method": publisher.auth_method
+        }
+
+# ------------------------------
+# Article Generation Endpoints
+# ------------------------------
+from agents import (
+    CompetitorMonitoringAgent, CompetitorInsights,
+    ArticleGenerationAgent, GeneratedArticle, SEORequirements
+)
 from typing import List
+
+# Global agent instances
+article_agent = None
+
+def get_article_agent():
+    """Get or create article generation agent"""
+    global article_agent
+    if article_agent is None:
+        article_agent = ArticleGenerationAgent()
+    return article_agent
+
+@app.post("/article/generate")
+async def generate_article(
+    topic: str,
+    primary_keyword: str,
+    secondary_keywords: List[str] = [],
+    min_words: int = 1500,
+    max_words: int = 2500,
+    use_competitor_insights: bool = True
+):
+    """
+    Generate a complete SEO-optimized article
+    
+    Args:
+        topic: Topic to write about
+        primary_keyword: Main SEO keyword
+        secondary_keywords: Additional keywords
+        min_words: Minimum word count
+        max_words: Maximum word count
+        use_competitor_insights: Whether to use competitor analysis
+    """
+    agent = get_article_agent()
+    
+    # Create SEO requirements
+    seo_reqs = SEORequirements(
+        primary_keyword=primary_keyword,
+        secondary_keywords=secondary_keywords[:5],
+        min_words=min_words,
+        max_words=max_words
+    )
+    
+    # Get competitor insights if requested
+    competitor_insights = None
+    if use_competitor_insights:
+        try:
+            comp_agent = get_competitor_agent()
+            insights = await comp_agent.generate_insights()
+            competitor_insights = {
+                "trending_topics": [t.topic for t in insights.trending_topics[:3]],
+                "content_gaps": [g.topic for g in insights.content_gaps[:3]],
+                "recommended_topics": insights.recommended_topics[:3]
+            }
+        except Exception as e:
+            logger.warning(f"Could not get competitor insights: {e}")
+    
+    try:
+        article = await agent.generate_article(
+            topic=topic,
+            seo_requirements=seo_reqs,
+            brand_voice="professional, empathetic, and informative",
+            target_audience="Service dog handlers and business owners",
+            competitor_insights=competitor_insights
+        )
+        
+        return article.dict()
+    
+    except Exception as e:
+        logger.error(f"Article generation failed: {str(e)}")
+        raise HTTPException(500, f"Article generation failed: {str(e)}")
+
+@app.get("/article/costs")
+async def get_article_costs():
+    """Get cost summary for article generation"""
+    agent = get_article_agent()
+    return agent.get_cost_summary()
+
+
+# ------------------------------
+# Competitor Monitoring Endpoints  
+# ------------------------------
 
 # Global agent instance (in production, use dependency injection)
 competitor_agent = None

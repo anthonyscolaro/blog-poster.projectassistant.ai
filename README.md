@@ -12,12 +12,14 @@ Blog Poster is a multi-agent system that:
 - Operates completely independently from the main ServiceDogUS site
 
 ### Implementation Status
-**Current Stage**: MVP Foundation (40% Complete)
+**Current Stage**: MVP Functional (80% Complete)
 - ✅ Infrastructure and Docker setup complete
-- ✅ WordPress publishing functional
-- ✅ API framework and data models ready
-- ⚠️ Agent implementations stubbed/mocked
-- ❌ LLM integration and vector search pending
+- ✅ WordPress publishing fully functional
+- ✅ Article generation with AI working
+- ✅ Competitor monitoring implemented
+- ✅ Development tools configured (hot reload, linting)
+- ⚠️ Legal fact checker stubbed
+- ❌ Vector search pending
 
 See [PROGRESS.md](PROGRESS.md) for detailed status.
 
@@ -46,9 +48,12 @@ Note: These ports are different from the main site to avoid conflicts.
 # 1. Clone and configure
 git clone https://github.com/anthonyscolaro/blog-poster.git
 cd blog-poster
-cp .env.local.example .env.local
+cp .env.example .env.local
 
-# 2. Add your API keys to .env.local
+# 2. Edit .env.local with your credentials:
+#    - WordPress username/password
+#    - AI API keys (Anthropic or OpenAI)
+#    - Web scraping keys (optional)
 nano .env.local
 
 # 3. Start services
@@ -56,6 +61,12 @@ docker compose up -d
 
 # 4. Verify health
 curl http://localhost:8088/health
+
+# 5. Test WordPress connection
+python examples/test_direct_publish.py
+
+# 6. Run complete workflow
+python examples/complete_workflow.py
 ```
 
 For detailed setup instructions, see [docs/setup/QUICKSTART.md](docs/setup/QUICKSTART.md).
@@ -80,24 +91,65 @@ WORDPRESS_ADMIN_PASSWORD=your-password
 
 ### WordPress Integration
 
-The service connects to your WordPress site via:
-- **WPGraphQL** for content creation and updates
-- **REST API** for media uploads
-- **Authentication** via Application Passwords or JWT
+The service connects to your WordPress site via REST API.
 
-Ensure your WordPress site has:
-1. WPGraphQL plugin installed and activated
-2. Application Passwords enabled (or JWT authentication)
-3. Proper user permissions for content creation
+#### Local Development Setup
+1. Install **JSON Basic Authentication** plugin for local WordPress
+2. Configure permalinks (Settings → Permalinks → Custom: `/%category%/%postname%/`)
+3. Set credentials in `.env.local`:
+   ```env
+   WP_AUTH_METHOD=basic
+   WP_USERNAME=your-username
+   WP_APP_PASSWORD=your-password
+   ```
+
+#### Production Setup
+1. Use Application Passwords (requires HTTPS)
+2. Generate password in WordPress Admin → Users → Profile
+3. Update `.env.local` with production URL and credentials
 
 ## Usage
 
-### Generate an Article
+### Test WordPress Connection
 
 ```bash
-curl -X POST http://localhost:8088/agent/run \
-  -H "Content-Type: application/json" \
-  -d @topic-input.json
+# Check if WordPress is accessible
+curl http://localhost:8088/wordpress/test
+
+# Or use the Python test script
+python examples/test_wordpress_publish.py
+```
+
+### Generate and Publish an Article
+
+```bash
+# Complete workflow: Generate → Publish
+python examples/complete_workflow.py
+
+# Or use individual endpoints:
+
+# 1. Generate article with AI
+curl -X POST "http://localhost:8088/article/generate" \
+  -G --data-urlencode "topic=Service Dog Training Tips" \
+  --data-urlencode "primary_keyword=service dog training" \
+  --data-urlencode "min_words=800" \
+  --data-urlencode "max_words=1200"
+
+# 2. Publish to WordPress
+curl -X POST "http://localhost:8088/publish/wp" \
+  -G --data-urlencode "title=Your Article Title" \
+  --data-urlencode "content=Article content here..." \
+  --data-urlencode "status=draft"
+```
+
+### Monitor Competitors
+
+```bash
+# Scan competitor websites
+curl -X POST http://localhost:8088/competitors/scan
+
+# Get competitor insights
+curl http://localhost:8088/competitors/insights
 ```
 
 ### Check SEO Compliance
@@ -105,46 +157,68 @@ curl -X POST http://localhost:8088/agent/run \
 ```bash
 curl -X POST http://localhost:8088/seo/lint \
   -H "Content-Type: application/json" \
-  -d '{"title": "Your Title", "meta_desc": "Your description"}'
+  -d @examples/test-seo.json
 ```
 
-### Publish to WordPress
+## Development
+
+### Available Commands
 
 ```bash
-curl -X POST http://localhost:8088/publish/wp \
-  -H "Content-Type: application/json" \
-  -d @article.json
+make format    # Format code with black/isort
+make lint      # Run linting checks
+make logs      # View API logs
+make restart   # Restart API container
+make shell     # Access container shell
 ```
+
+### Testing Scripts
+
+```bash
+# Test WordPress publishing
+python examples/test_direct_publish.py
+
+# Complete workflow test
+python examples/complete_workflow.py
+
+# Quick credentials check
+./examples/quick_test.sh
+```
+
+### Hot Reload
+
+The API automatically reloads when you modify code. No container restart needed!
 
 ## Agents
 
-### 1. Competitor Monitoring Agent (⚠️ Planned)
-- Will scrape competitor blogs and social media
-- Uses Jina AI for content extraction
-- Tracks new content and updates
-- **Status**: Not yet implemented
+### 1. Competitor Monitoring Agent (✅ Implemented)
+- Scrapes competitor blogs with Jina AI
+- Falls back to Bright Data for social media
+- Tracks trending topics and content gaps
+- **Status**: Fully functional
 
-### 2. Topic Analysis Agent (⚠️ Planned)
-- Analyzes trending topics
-- Identifies content gaps
+### 2. Topic Analysis Agent (✅ Implemented)
+- Analyzes trending topics from competitors
+- Identifies content opportunities
 - Scores topics by SEO potential
-- **Status**: Not yet implemented
+- **Status**: Working within competitor agent
 
-### 3. Article Generation Agent (⚠️ Stubbed)
-- Uses Claude 3.5 Sonnet or GPT-4
+### 3. Article Generation Agent (✅ Implemented)
+- Uses Claude 3.5 Sonnet (primary)
+- Falls back to GPT-4 Turbo
 - Generates SEO-optimized content
-- Ensures factual accuracy
-- **Status**: Returns mock data, LLM integration pending
+- Tracks costs per article
+- **Status**: Fully functional with valid API keys
 
 ### 4. Legal Fact Checker Agent (⚠️ Stubbed)
-- Verifies all legal claims
+- Will verify legal claims
 - Ensures ADA compliance accuracy
-- Blocks misleading content
 - **Status**: Returns hardcoded "verified"
 
 ### 5. WordPress Publishing Agent (✅ Functional)
-- Publishes via WPGraphQL
-- Handles media uploads
+- Publishes via REST API
+- Supports Basic Auth (local) and App Passwords (production)
+- Creates draft or published posts
 - Sets SEO metadata
 - **Status**: Fully implemented and working
 
@@ -325,13 +399,42 @@ blog-poster/
 └── tests/                    # Test suite (planned)
 ```
 
+## Troubleshooting
+
+### Common Issues
+
+#### WordPress Connection Failed
+- Ensure permalinks are set to `/%category%/%postname%/`
+- Verify JSON Basic Authentication plugin is activated
+- Check username/password in `.env.local`
+- Restart API container: `make restart`
+
+#### Article Generation Failed
+- Verify AI API keys in `.env.local`
+- Check if keys are valid and have credits
+- Use `docker logs blog-api` to see detailed errors
+
+#### Container Issues
+```bash
+# Check container status
+docker ps
+
+# View logs
+docker logs blog-api --tail 50
+
+# Restart all services
+docker compose down && docker compose up -d
+```
+
 ## Support
 
 For issues or questions:
 1. Check [Documentation](docs/index.md)
 2. Review [Quick Start Guide](docs/setup/QUICKSTART.md)
-3. View logs: `docker compose logs -f`
-4. API docs: http://localhost:8088/docs
+3. View [Progress Tracking](PROGRESS.md)
+4. Check [Task Management](TASK.md)
+5. View logs: `docker compose logs -f`
+6. API docs: http://localhost:8088/docs
 
 ## License
 

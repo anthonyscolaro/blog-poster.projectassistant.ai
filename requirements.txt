@@ -6,7 +6,7 @@ pydantic-settings==2.1.0
 
 # AI/ML
 anthropic==0.39.0
-openai==1.10.0
+openai==1.51.0  # Updated to latest version for better async support
 sentence-transformers==2.2.2
 tiktoken==0.5.2
 
