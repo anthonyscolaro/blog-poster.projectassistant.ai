@@ -1,0 +1,571 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-gear"></i> Configuration</h2>
+            <div>
+                <button class="btn btn-success" onclick="saveConfiguration()">
+                    <i class="bi bi-save"></i> Save Changes
+                </button>
+                <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Reset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="configForm">
+    <!-- WordPress Configuration -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-wordpress"></i> WordPress Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="wpUrl" class="form-label">WordPress URL</label>
+                                <input type="url" class="form-control" id="wpUrl" 
+                                       value="{{ config_data.wordpress.url }}" 
+                                       placeholder="https://your-site.com">
+                                <div class="form-text">Full URL to your WordPress site</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="wpUsername" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="wpUsername" 
+                                       value="{{ config_data.wordpress.username }}" 
+                                       placeholder="admin">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="wpAuthMethod" class="form-label">Authentication Method</label>
+                                <select class="form-control" id="wpAuthMethod">
+                                    <option value="basic" {% if config_data.wordpress.auth_method == 'basic' %}selected{% endif %}>
+                                        Basic Auth (Local Development)
+                                    </option>
+                                    <option value="application" {% if config_data.wordpress.auth_method == 'application' %}selected{% endif %}>
+                                        Application Password (Production)
+                                    </option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="wpVerifySSL" 
+                                           {% if config_data.wordpress.verify_ssl == 'true' %}checked{% endif %}>
+                                    <label class="form-check-label" for="wpVerifySSL">
+                                        Verify SSL Certificate
+                                    </label>
+                                </div>
+                                <div class="form-text">Uncheck for local development with self-signed certificates</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-info" onclick="testWordPressConnection()">
+                            <i class="bi bi-wifi"></i> Test Connection
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Generation Settings -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-text"></i> Content Generation Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="minWords" class="form-label">Minimum Words</label>
+                                <input type="number" class="form-control" id="minWords" 
+                                       value="{{ config_data.content.min_words }}" 
+                                       min="500" max="5000">
+                                <div class="form-text">Minimum article length for SEO</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="maxWords" class="form-label">Maximum Words</label>
+                                <input type="number" class="form-control" id="maxWords" 
+                                       value="{{ config_data.content.max_words }}" 
+                                       min="1000" max="10000">
+                                <div class="form-text">Maximum article length</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="maxCostPerArticle" class="form-label">Max Cost Per Article</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="maxCostPerArticle" 
+                                           value="{{ config_data.content.max_cost }}" 
+                                           step="0.01" min="0.01" max="50.00">
+                                </div>
+                                <div class="form-text">Stop generation if cost exceeds this amount</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="monthlyBudget" class="form-label">Monthly Budget</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="monthlyBudget" 
+                                           value="{{ config_data.content.monthly_budget }}" 
+                                           step="1.00" min="10.00" max="10000.00">
+                                </div>
+                                <div class="form-text">Total monthly spending limit</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Agent Configuration -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-robot"></i> Agent Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="enableCompetitorMonitoring" 
+                                           {% if config_data.agents.competitor_monitoring %}checked{% endif %}>
+                                    <label class="form-check-label" for="enableCompetitorMonitoring">
+                                        <strong>Competitor Monitoring Agent</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text">Automatically scan competitor sites for trending topics</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="enableTopicAnalysis" 
+                                           {% if config_data.agents.topic_analysis %}checked{% endif %}>
+                                    <label class="form-check-label" for="enableTopicAnalysis">
+                                        <strong>Topic Analysis Agent</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text">Analyze keywords and identify SEO opportunities</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="enableFactChecking" 
+                                           {% if config_data.agents.fact_checking %}checked{% endif %}>
+                                    <label class="form-check-label" for="enableFactChecking">
+                                        <strong>Legal Fact Checker Agent</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text">Verify ADA compliance and legal accuracy</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="enableAutoPublish" 
+                                           {% if config_data.agents.auto_publish %}checked{% endif %}>
+                                    <label class="form-check-label" for="enableAutoPublish">
+                                        <strong>Auto-Publish</strong>
+                                    </label>
+                                </div>
+                                <div class="form-text">Automatically publish approved articles</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- API Keys -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-key"></i> API Keys
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Security Note:</strong> API keys are stored in environment files and not displayed here for security. 
+                        Update your <code>.env.local</code> or <code>.env.prod</code> file to change API keys.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Anthropic API Key</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" value="sk-ant-api03-**************" disabled>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="testAnthropicAPI()">
+                                        <i class="bi bi-check-circle"></i> Test
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Jina AI API Key</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" value="jina_**************" disabled>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="testJinaAPI()">
+                                        <i class="bi bi-check-circle"></i> Test
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">OpenAI API Key (Fallback)</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" value="sk-**************" disabled>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="testOpenAIAPI()">
+                                        <i class="bi bi-check-circle"></i> Test
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Bright Data API Key (Optional)</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" value="**************" disabled>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="testBrightDataAPI()">
+                                        <i class="bi bi-check-circle"></i> Test
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advanced Settings -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-sliders"></i> Advanced Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="logLevel" class="form-label">Log Level</label>
+                                <select class="form-control" id="logLevel">
+                                    <option value="DEBUG">DEBUG - Verbose logging</option>
+                                    <option value="INFO" selected>INFO - Standard logging</option>
+                                    <option value="WARNING">WARNING - Warnings and errors</option>
+                                    <option value="ERROR">ERROR - Errors only</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="maxWorkers" class="form-label">Max Workers</label>
+                                <input type="number" class="form-control" id="maxWorkers" 
+                                       value="4" min="1" max="10">
+                                <div class="form-text">Maximum concurrent article generation</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="taskTimeout" class="form-label">Task Timeout (seconds)</label>
+                                <input type="number" class="form-control" id="taskTimeout" 
+                                       value="300" min="60" max="1800">
+                                <div class="form-text">Maximum time for agent tasks</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enableMetrics" checked>
+                                    <label class="form-check-label" for="enableMetrics">
+                                        Enable Metrics Collection
+                                    </label>
+                                </div>
+                                <div class="form-text">Collect performance and usage metrics</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Configuration Export/Import -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-download"></i> Configuration Management
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <button class="btn btn-outline-primary w-100" onclick="exportConfiguration()">
+                            <i class="bi bi-download"></i> Export Configuration
+                        </button>
+                        <div class="form-text mt-2">Download current settings as JSON file</div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <input type="file" class="form-control" id="configImport" accept=".json">
+                        <button class="btn btn-outline-success w-100 mt-2" onclick="importConfiguration()">
+                            <i class="bi bi-upload"></i> Import Configuration
+                        </button>
+                        <div class="form-text mt-2">Upload and apply saved settings</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function saveConfiguration() {
+    const config = {
+        wordpress: {
+            url: document.getElementById('wpUrl').value,
+            username: document.getElementById('wpUsername').value,
+            auth_method: document.getElementById('wpAuthMethod').value,
+            verify_ssl: document.getElementById('wpVerifySSL').checked
+        },
+        content: {
+            min_words: parseInt(document.getElementById('minWords').value),
+            max_words: parseInt(document.getElementById('maxWords').value),
+            max_cost: parseFloat(document.getElementById('maxCostPerArticle').value),
+            monthly_budget: parseFloat(document.getElementById('monthlyBudget').value)
+        },
+        agents: {
+            competitor_monitoring: document.getElementById('enableCompetitorMonitoring').checked,
+            topic_analysis: document.getElementById('enableTopicAnalysis').checked,
+            fact_checking: document.getElementById('enableFactChecking').checked,
+            auto_publish: document.getElementById('enableAutoPublish').checked
+        },
+        advanced: {
+            log_level: document.getElementById('logLevel').value,
+            max_workers: parseInt(document.getElementById('maxWorkers').value),
+            task_timeout: parseInt(document.getElementById('taskTimeout').value),
+            enable_metrics: document.getElementById('enableMetrics').checked
+        }
+    };
+    
+    try {
+        const response = await fetch('/api/config/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        if (response.ok) {
+            alert('Configuration saved successfully!');
+        } else {
+            alert('Failed to save configuration');
+        }
+    } catch (error) {
+        alert('Error saving configuration: ' + error.message);
+    }
+}
+
+async function testWordPressConnection() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/health/test-wordpress', { method: 'POST' });
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert('WordPress connection successful!\n\nDetails:\n' + JSON.stringify(result, null, 2));
+        } else {
+            alert('WordPress connection failed:\n' + result.detail);
+        }
+    } catch (error) {
+        alert('WordPress test failed: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function testAnthropicAPI() {
+    const btn = event.target;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/health/test-anthropic', { method: 'POST' });
+        if (response.ok) {
+            alert('Anthropic API connection successful!');
+        } else {
+            alert('Anthropic API test failed');
+        }
+    } catch (error) {
+        alert('Anthropic API test failed: ' + error.message);
+    } finally {
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Test';
+        btn.disabled = false;
+    }
+}
+
+async function testJinaAPI() {
+    const btn = event.target;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/health/test-jina', { method: 'POST' });
+        if (response.ok) {
+            alert('Jina AI API connection successful!');
+        } else {
+            alert('Jina AI API test failed');
+        }
+    } catch (error) {
+        alert('Jina AI API test failed: ' + error.message);
+    } finally {
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Test';
+        btn.disabled = false;
+    }
+}
+
+async function testOpenAIAPI() {
+    alert('OpenAI API test not implemented yet');
+}
+
+async function testBrightDataAPI() {
+    alert('Bright Data API test not implemented yet');
+}
+
+function exportConfiguration() {
+    const config = {
+        wordpress: {
+            url: document.getElementById('wpUrl').value,
+            username: document.getElementById('wpUsername').value,
+            auth_method: document.getElementById('wpAuthMethod').value,
+            verify_ssl: document.getElementById('wpVerifySSL').checked
+        },
+        content: {
+            min_words: parseInt(document.getElementById('minWords').value),
+            max_words: parseInt(document.getElementById('maxWords').value),
+            max_cost: parseFloat(document.getElementById('maxCostPerArticle').value),
+            monthly_budget: parseFloat(document.getElementById('monthlyBudget').value)
+        },
+        agents: {
+            competitor_monitoring: document.getElementById('enableCompetitorMonitoring').checked,
+            topic_analysis: document.getElementById('enableTopicAnalysis').checked,
+            fact_checking: document.getElementById('enableFactChecking').checked,
+            auto_publish: document.getElementById('enableAutoPublish').checked
+        },
+        advanced: {
+            log_level: document.getElementById('logLevel').value,
+            max_workers: parseInt(document.getElementById('maxWorkers').value),
+            task_timeout: parseInt(document.getElementById('taskTimeout').value),
+            enable_metrics: document.getElementById('enableMetrics').checked
+        },
+        exported_at: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blog-poster-config-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function importConfiguration() {
+    const fileInput = document.getElementById('configImport');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Please select a configuration file first');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const config = JSON.parse(e.target.result);
+            
+            // Apply configuration to form
+            if (config.wordpress) {
+                document.getElementById('wpUrl').value = config.wordpress.url || '';
+                document.getElementById('wpUsername').value = config.wordpress.username || '';
+                document.getElementById('wpAuthMethod').value = config.wordpress.auth_method || 'basic';
+                document.getElementById('wpVerifySSL').checked = config.wordpress.verify_ssl || false;
+            }
+            
+            if (config.content) {
+                document.getElementById('minWords').value = config.content.min_words || 1500;
+                document.getElementById('maxWords').value = config.content.max_words || 2500;
+                document.getElementById('maxCostPerArticle').value = config.content.max_cost || 15.00;
+                document.getElementById('monthlyBudget').value = config.content.monthly_budget || 500.00;
+            }
+            
+            if (config.agents) {
+                document.getElementById('enableCompetitorMonitoring').checked = config.agents.competitor_monitoring || false;
+                document.getElementById('enableTopicAnalysis').checked = config.agents.topic_analysis || false;
+                document.getElementById('enableFactChecking').checked = config.agents.fact_checking || false;
+                document.getElementById('enableAutoPublish').checked = config.agents.auto_publish || false;
+            }
+            
+            if (config.advanced) {
+                document.getElementById('logLevel').value = config.advanced.log_level || 'INFO';
+                document.getElementById('maxWorkers').value = config.advanced.max_workers || 4;
+                document.getElementById('taskTimeout').value = config.advanced.task_timeout || 300;
+                document.getElementById('enableMetrics').checked = config.advanced.enable_metrics || true;
+            }
+            
+            alert('Configuration imported successfully!');
+        } catch (error) {
+            alert('Failed to import configuration: ' + error.message);
+        }
+    };
+    
+    reader.readAsText(file);
+}
+</script>
+{% endblock %}

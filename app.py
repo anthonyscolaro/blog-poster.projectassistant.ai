@@ -24,8 +24,11 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, HttpUrl, Field, validator
 
 # Set up logging
@@ -278,7 +281,7 @@ claude = ClaudeClient()
 # ------------------------------
 # FastAPI App
 # ------------------------------
-app = FastAPI(title="Article Agent Tool Shim")
+app = FastAPI(title="Blog Poster Dashboard")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -287,12 +290,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Setup templates and static files for dashboard
+templates = Jinja2Templates(directory="templates")
+
+# Create directories if they don't exist
+import os
+os.makedirs("templates", exist_ok=True)
+os.makedirs("static", exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 try:
     # Include the WordPress publishing router providing /publish/wp
     from fast_api_tool_shim_pydantic_schemas_for_article_generation_agent_updated import (
         router as publish_router,
     )
     app.include_router(publish_router)
+except Exception:
+    pass
+
+# Include configuration profile management API
+try:
+    from config_api import router as config_router
+    app.include_router(config_router)
 except Exception:
     # Router is optional; the app can run without it if dependencies are missing
     publish_router = None  # type: ignore
@@ -658,15 +679,688 @@ async def get_content_gaps():
 
 
 # ------------------------------
+# Topic Analysis Endpoints
+# ------------------------------
+from agents.topic_analysis_agent import TopicAnalysisAgent, TopicRecommendation
+
+# Global topic agent
+topic_agent = None
+
+def get_topic_agent():
+    """Get or create topic analysis agent"""
+    global topic_agent
+    if topic_agent is None:
+        topic_agent = TopicAnalysisAgent()
+    return topic_agent
+
+@app.post("/topics/analyze")
+async def analyze_topics(
+    keywords: List[str] = [],
+    competitor_urls: List[str] = [],
+    existing_titles: List[str] = [],
+    max_recommendations: int = 10
+):
+    """
+    Analyze topics and identify content opportunities
+    
+    Args:
+        keywords: Keywords to analyze
+        competitor_urls: Competitor URLs to analyze (optional)
+        existing_titles: Your existing content titles to avoid duplication
+        max_recommendations: Maximum topic recommendations
+    """
+    agent = get_topic_agent()
+    
+    try:
+        # Get competitor content if URLs provided
+        competitor_content = []
+        if competitor_urls:
+            # Would scrape competitor URLs here
+            for url in competitor_urls[:5]:
+                competitor_content.append({"title": f"Competitor article from {url}", "url": url})
+        
+        # Perform analysis
+        report = await agent.analyze_topics(
+            competitor_content=competitor_content if competitor_content else None,
+            target_keywords=keywords if keywords else None,
+            existing_content=existing_titles,
+            max_recommendations=max_recommendations
+        )
+        
+        return {
+            "keywords_analyzed": report.keywords_analyzed,
+            "content_gaps_found": report.content_gaps_found,
+            "topics_recommended": report.topics_recommended,
+            "recommendations": [
+                {
+                    "title": rec.title,
+                    "slug": rec.slug,
+                    "primary_keyword": rec.primary_keyword,
+                    "secondary_keywords": rec.secondary_keywords,
+                    "content_type": rec.content_type,
+                    "target_word_count": rec.target_word_count,
+                    "priority_score": rec.priority_score,
+                    "rationale": rec.rationale,
+                    "outline": rec.content_outline
+                }
+                for rec in report.recommendations
+            ],
+            "market_insights": report.market_insights,
+            "analyzed_at": report.analyzed_at.isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Topic analysis failed: {e}")
+        raise HTTPException(500, f"Topic analysis failed: {str(e)}")
+
+@app.get("/topics/recommendations")
+async def get_quick_topic_recommendations(
+    count: int = 5,
+    focus: Optional[str] = None
+):
+    """
+    Get quick topic recommendations without full analysis
+    
+    Args:
+        count: Number of recommendations (default 5)
+        focus: Optional focus area (e.g., "PTSD", "training", "laws")
+    """
+    agent = get_topic_agent()
+    
+    try:
+        recommendations = await agent.get_quick_recommendations(count=count, focus=focus)
+        
+        return {
+            "recommendations": [
+                {
+                    "title": rec.title,
+                    "slug": rec.slug,
+                    "primary_keyword": rec.primary_keyword,
+                    "content_type": rec.content_type,
+                    "priority_score": rec.priority_score,
+                    "target_word_count": rec.target_word_count
+                }
+                for rec in recommendations
+            ],
+            "count": len(recommendations),
+            "focus": focus
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get recommendations: {e}")
+        raise HTTPException(500, f"Failed to get recommendations: {str(e)}")
+
+@app.get("/topics/gaps")
+async def identify_content_gaps(
+    keywords: List[str] = [],
+    existing_titles: List[str] = []
+):
+    """
+    Identify content gaps based on keywords and existing content
+    """
+    agent = get_topic_agent()
+    
+    try:
+        # Analyze for gaps
+        report = await agent.analyze_topics(
+            target_keywords=keywords if keywords else agent.SEED_KEYWORDS[:10],
+            existing_content=existing_titles,
+            max_recommendations=5
+        )
+        
+        return {
+            "gaps": [
+                {
+                    "topic": gap.topic,
+                    "gap_type": gap.gap_type,
+                    "opportunity_score": gap.opportunity_score,
+                    "difficulty_score": gap.difficulty_score,
+                    "rationale": gap.rationale,
+                    "competitors_covering": gap.competitors_covering
+                }
+                for gap in report.content_gaps
+            ],
+            "total_gaps": len(report.content_gaps)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to identify gaps: {e}")
+        raise HTTPException(500, f"Failed to identify content gaps: {str(e)}")
+
+# ------------------------------
+# Orchestration Pipeline Endpoints
+# ------------------------------
+from orchestration_manager import (
+    OrchestrationManager, 
+    PipelineConfig, 
+    PipelineResult,
+    PipelineStatus
+)
+
+# Global orchestration manager
+orchestration_manager = None
+
+def get_orchestration_manager():
+    """Get or create orchestration manager"""
+    global orchestration_manager
+    if orchestration_manager is None:
+        orchestration_manager = OrchestrationManager()
+    return orchestration_manager
+
+@app.post("/pipeline/run")
+async def run_full_pipeline(config: PipelineConfig):
+    """
+    Run the complete multi-agent blog generation pipeline
+    
+    This orchestrates all 5 agents in sequence:
+    1. Competitor Monitoring
+    2. Topic Analysis
+    3. Article Generation
+    4. Legal Fact Checking
+    5. WordPress Publishing
+    """
+    manager = get_orchestration_manager()
+    
+    try:
+        logger.info(f"Starting pipeline for topic: {config.topic or 'auto-determined'}")
+        result = await manager.run_pipeline(config)
+        
+        # Convert to dict for response
+        response = {
+            "status": result.status,
+            "execution_time": result.execution_time,
+            "total_cost": result.total_cost,
+            "errors": result.errors,
+            "warnings": result.warnings
+        }
+        
+        # Add article details if generated
+        if result.article:
+            response["article"] = {
+                "title": result.article.title,
+                "word_count": result.article.word_count,
+                "seo_score": result.article.seo_score,
+                "slug": result.article.slug
+            }
+        
+        # Add fact check summary if performed
+        if result.fact_check_report:
+            response["fact_check"] = {
+                "accuracy_score": result.fact_check_report.overall_accuracy_score,
+                "verified_claims": result.fact_check_report.verified_claims,
+                "incorrect_claims": result.fact_check_report.incorrect_claims,
+                "total_claims": result.fact_check_report.total_claims
+            }
+        
+        # Add WordPress details if published
+        if result.wordpress_result and result.wordpress_result.get("success"):
+            response["wordpress"] = {
+                "post_id": result.wordpress_result["post_id"],
+                "edit_link": result.wordpress_result["edit_link"],
+                "view_link": result.wordpress_result.get("view_link")
+            }
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Pipeline failed: {e}")
+        raise HTTPException(500, f"Pipeline execution failed: {str(e)}")
+
+@app.get("/pipeline/status")
+async def get_pipeline_status():
+    """Get current pipeline execution status"""
+    manager = get_orchestration_manager()
+    status = manager.get_pipeline_status()
+    
+    if status:
+        return {
+            "running": True,
+            "status": status,
+            "message": f"Pipeline is currently in {status} stage"
+        }
+    else:
+        return {
+            "running": False,
+            "status": None,
+            "message": "No pipeline currently running"
+        }
+
+@app.get("/pipeline/history")
+async def get_pipeline_history(limit: int = 10):
+    """Get recent pipeline execution history"""
+    manager = get_orchestration_manager()
+    history = manager.get_pipeline_history(limit)
+    
+    return {
+        "executions": [
+            {
+                "status": h.status,
+                "started_at": h.started_at.isoformat(),
+                "completed_at": h.completed_at.isoformat() if h.completed_at else None,
+                "execution_time": h.execution_time,
+                "total_cost": h.total_cost,
+                "errors": h.errors
+            }
+            for h in history
+        ],
+        "total": len(history)
+    }
+
+@app.get("/pipeline/costs")
+async def get_pipeline_costs():
+    """Get cost summary for pipeline executions"""
+    manager = get_orchestration_manager()
+    return manager.get_cost_summary()
+
+# ------------------------------
+# Vector Search Endpoints
+# ------------------------------
+from vector_search import VectorSearchManager, SearchResult
+
+# Global vector search manager
+vector_manager = None
+
+def get_vector_manager():
+    """Get or create vector search manager"""
+    global vector_manager
+    if vector_manager is None:
+        vector_manager = VectorSearchManager()
+    return vector_manager
+
+class IndexDocumentRequest(BaseModel):
+    content: str
+    document_id: str
+    title: str
+    url: Optional[str] = None
+    collection: str = "blog_articles"
+
+@app.post("/vector/index")
+async def index_document(request: IndexDocumentRequest):
+    """
+    Index a document in vector search
+    
+    Args:
+        content: Document content
+        document_id: Unique document ID
+        title: Document title
+        url: Document URL
+        collection: Collection to index in
+    """
+    manager = get_vector_manager()
+    
+    success = await manager.index_document(
+        content=request.content,
+        document_id=request.document_id,
+        title=request.title,
+        url=request.url,
+        collection=request.collection
+    )
+    
+    if success:
+        return {
+            "success": True,
+            "message": f"Document {request.document_id} indexed successfully",
+            "collection": request.collection
+        }
+    else:
+        raise HTTPException(500, "Failed to index document")
+
+class SearchDocumentsRequest(BaseModel):
+    query: str
+    limit: int = 5
+    collection: str = "blog_articles"
+
+@app.post("/vector/search")
+async def search_documents(request: SearchDocumentsRequest):
+    """
+    Search for similar documents
+    
+    Args:
+        query: Search query
+        limit: Number of results
+        collection: Collection to search
+    """
+    manager = get_vector_manager()
+    
+    results = await manager.search(
+        query=request.query,
+        limit=request.limit,
+        collection=request.collection
+    )
+    
+    return {
+        "query": request.query,
+        "results": [
+            {
+                "title": r.document_title,
+                "content": r.content[:200] + "...",
+                "url": r.document_url,
+                "score": r.similarity_score
+            }
+            for r in results
+        ],
+        "count": len(results)
+    }
+
+@app.post("/vector/check-duplicate")
+async def check_duplicate(
+    content: str,
+    threshold: float = 0.9,
+    collection: str = "blog_articles"
+):
+    """
+    Check if content is duplicate
+    
+    Args:
+        content: Content to check
+        threshold: Similarity threshold (0.9 = 90% similar)
+        collection: Collection to check against
+    """
+    manager = get_vector_manager()
+    
+    duplicate = await manager.check_duplicate(
+        content=content,
+        threshold=threshold,
+        collection=collection
+    )
+    
+    if duplicate:
+        return {
+            "is_duplicate": True,
+            "similar_document": {
+                "title": duplicate.document_title,
+                "url": duplicate.document_url,
+                "similarity": duplicate.similarity_score
+            }
+        }
+    else:
+        return {
+            "is_duplicate": False,
+            "message": "No duplicate found"
+        }
+
+@app.get("/vector/internal-links")
+async def get_internal_links(
+    content: str,
+    limit: int = 5
+):
+    """
+    Get internal link recommendations based on content
+    
+    Args:
+        content: Content to find links for
+        limit: Maximum number of links
+    """
+    manager = get_vector_manager()
+    
+    links = await manager.get_internal_links(
+        content=content,
+        limit=limit
+    )
+    
+    return {
+        "links": links,
+        "count": len(links)
+    }
+
+@app.get("/vector/stats")
+async def get_vector_stats(collection: str = "blog_articles"):
+    """
+    Get collection statistics
+    
+    Args:
+        collection: Collection name
+    """
+    manager = get_vector_manager()
+    stats = manager.get_collection_stats(collection)
+    
+    return stats
+
+@app.delete("/vector/document/{document_id}")
+async def delete_document(
+    document_id: str,
+    collection: str = "blog_articles"
+):
+    """
+    Delete a document from vector search
+    
+    Args:
+        document_id: Document ID to delete
+        collection: Collection to delete from
+    """
+    manager = get_vector_manager()
+    
+    success = await manager.delete_document(
+        document_id=document_id,
+        collection=collection
+    )
+    
+    if success:
+        return {
+            "success": True,
+            "message": f"Document {document_id} deleted"
+        }
+    else:
+        raise HTTPException(500, "Failed to delete document")
+
+# ------------------------------
+# Dashboard Routes
+# ------------------------------
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard_home(request: Request):
+    """Main dashboard page"""
+    try:
+        # Get system status
+        orchestration_status = get_orchestration_manager()
+        vector_manager = get_vector_manager()
+        
+        # Get basic stats
+        pipeline_stats = await orchestration_status.get_pipeline_stats() if orchestration_status else {}
+        vector_stats = vector_manager.get_collection_stats() if vector_manager else {}
+        
+        context = {
+            "request": request,
+            "title": "Blog Poster Dashboard",
+            "pipeline_stats": pipeline_stats,
+            "vector_stats": vector_stats,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("dashboard.html", context)
+    except Exception as e:
+        logger.error(f"Dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/pipeline", response_class=HTMLResponse)
+async def pipeline_dashboard(request: Request):
+    """Pipeline monitoring page"""
+    try:
+        orchestration_status = get_orchestration_manager()
+        
+        # Get pipeline history and current status
+        pipeline_history = await orchestration_status.get_pipeline_history() if orchestration_status else []
+        active_pipelines = await orchestration_status.get_active_pipelines() if orchestration_status else []
+        
+        context = {
+            "request": request,
+            "title": "Pipeline Monitor",
+            "pipeline_history": pipeline_history[:20],  # Last 20 runs
+            "active_pipelines": active_pipelines,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("pipeline.html", context)
+    except Exception as e:
+        logger.error(f"Pipeline dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/articles", response_class=HTMLResponse)
+async def articles_dashboard(request: Request):
+    """Article management page"""
+    try:
+        # Get recent articles from cache/database
+        import glob
+        import json as json_lib
+        
+        articles = []
+        article_files = glob.glob("data/articles/*.json")
+        article_files.sort(key=os.path.getmtime, reverse=True)
+        
+        for file_path in article_files[:50]:  # Last 50 articles
+            try:
+                with open(file_path, 'r') as f:
+                    article_data = json_lib.load(f)
+                    article_data['file_path'] = file_path
+                    article_data['created_at'] = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    articles.append(article_data)
+            except Exception:
+                continue
+        
+        context = {
+            "request": request,
+            "title": "Article Management",
+            "articles": articles,
+            "total_articles": len(articles),
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("articles.html", context)
+    except Exception as e:
+        logger.error(f"Articles dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/health-dashboard", response_class=HTMLResponse)
+async def health_dashboard(request: Request):
+    """System health monitoring page"""
+    try:
+        # Check service health
+        health_data = {
+            "services": {},
+            "environment": {},
+            "metrics": {}
+        }
+        
+        # Check orchestration manager
+        try:
+            orchestration_status = get_orchestration_manager()
+            health_data["services"]["orchestration"] = "healthy" if orchestration_status else "down"
+        except:
+            health_data["services"]["orchestration"] = "error"
+        
+        # Check vector database
+        try:
+            vector_manager = get_vector_manager()
+            collections = vector_manager.get_collection_stats() if vector_manager else {}
+            health_data["services"]["qdrant"] = "healthy" if collections else "down"
+            health_data["metrics"]["collections"] = collections
+        except Exception as e:
+            logger.error(f"Qdrant health check error: {e}")
+            health_data["services"]["qdrant"] = "error"
+            health_data["metrics"]["collections"] = {}
+        
+        # Check WordPress connection
+        try:
+            from wordpress_publisher import WordPressPublisher
+            wp_publisher = WordPressPublisher()
+            # This would need a health check method
+            health_data["services"]["wordpress"] = "unknown"
+        except:
+            health_data["services"]["wordpress"] = "error"
+        
+        # Check Bright Data
+        health_data["services"]["bright_data"] = "healthy" if os.getenv("BRIGHT_DATA_API_KEY") else "unknown"
+        
+        # Check Jina AI
+        health_data["services"]["jina"] = "healthy" if os.getenv("JINA_API_KEY") else "unknown"
+        
+        # Environment info
+        health_data["environment"] = {
+            "anthropic_key": "✓" if os.getenv("ANTHROPIC_API_KEY") else "✗",
+            "jina_key": "✓" if os.getenv("JINA_API_KEY") else "✗",
+            "bright_data_key": "✓" if os.getenv("BRIGHT_DATA_API_KEY") else "✗",
+            "wp_url": os.getenv("WORDPRESS_URL", "not set"),
+            "wp_user": os.getenv("WP_USERNAME", "not set")
+        }
+        
+        context = {
+            "request": request,
+            "title": "System Health",
+            "health_data": health_data,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("health.html", context)
+    except Exception as e:
+        logger.error(f"Health dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/config", response_class=HTMLResponse)
+async def config_dashboard(request: Request):
+    """Configuration profiles management page"""
+    try:
+        context = {
+            "request": request,
+            "title": "Configuration Profiles",
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("config-profiles.html", context)
+    except Exception as e:
+        logger.error(f"Config dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/config/legacy", response_class=HTMLResponse)
+async def legacy_config_dashboard(request: Request):
+    """Legacy configuration management page"""
+    try:
+        # Get current configuration
+        config_data = {
+            "wordpress": {
+                "url": os.getenv("WORDPRESS_URL", ""),
+                "username": os.getenv("WP_USERNAME", ""),
+                "auth_method": os.getenv("WP_AUTH_METHOD", "basic"),
+                "verify_ssl": os.getenv("WP_VERIFY_SSL", "true")
+            },
+            "content": {
+                "min_words": os.getenv("ARTICLE_MIN_WORDS", "1500"),
+                "max_words": os.getenv("ARTICLE_MAX_WORDS", "2500"),
+                "max_cost": os.getenv("MAX_COST_PER_ARTICLE", "15.00"),
+                "monthly_budget": os.getenv("MAX_MONTHLY_COST", "500.00")
+            },
+            "agents": {
+                "competitor_monitoring": os.getenv("ENABLE_COMPETITOR_MONITORING", "true") == "true",
+                "topic_analysis": os.getenv("ENABLE_TOPIC_ANALYSIS", "true") == "true",
+                "fact_checking": os.getenv("ENABLE_FACT_CHECKING", "true") == "true",
+                "auto_publish": os.getenv("ENABLE_AUTO_PUBLISH", "false") == "true"
+            }
+        }
+        
+        context = {
+            "request": request,
+            "title": "Configuration",
+            "config_data": config_data,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("config.html", context)
+    except Exception as e:
+        logger.error(f"Config dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+# ------------------------------
 # Cleanup on shutdown
 # ------------------------------
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown"""
-    global competitor_agent
+    global competitor_agent, orchestration_manager
     if competitor_agent:
         await competitor_agent.close()
         competitor_agent = None
+    if orchestration_manager:
+        await orchestration_manager.close()
+        orchestration_manager = None
 
 
 # ------------------------------

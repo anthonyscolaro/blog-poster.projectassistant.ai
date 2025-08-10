@@ -1,0 +1,3 @@
+"""
+Blog-poster test suite
+"""

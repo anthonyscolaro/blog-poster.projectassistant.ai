@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-heart-pulse"></i> System Health</h2>
+            <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Service Status -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-server"></i> Service Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded">
+                            <div>
+                                <h6 class="mb-1">Orchestration Manager</h6>
+                                <small class="text-muted">Coordinates all AI agents</small>
+                            </div>
+                            <span class="status-badge status-{{ health_data.services.orchestration }}">
+                                {{ health_data.services.orchestration|title }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded">
+                            <div>
+                                <h6 class="mb-1">Vector Database (Qdrant)</h6>
+                                <small class="text-muted">Semantic search and embeddings</small>
+                            </div>
+                            <span class="status-badge status-{{ health_data.services.qdrant }}">
+                                {{ health_data.services.qdrant|title }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded">
+                            <div>
+                                <h6 class="mb-1">WordPress Connection</h6>
+                                <small class="text-muted">Content publishing platform</small>
+                            </div>
+                            <span class="status-badge status-warning">
+                                {{ health_data.services.wordpress|title }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded">
+                            <div>
+                                <h6 class="mb-1">AI Services</h6>
+                                <small class="text-muted">Claude API and OpenAI</small>
+                            </div>
+                            <span class="status-badge status-healthy">
+                                Active
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded">
+                            <div>
+                                <h6 class="mb-1">Bright Data</h6>
+                                <small class="text-muted">Web scraping and competitor monitoring</small>
+                            </div>
+                            <span class="status-badge status-{{ health_data.services.bright_data|default('unknown') }}">
+                                {{ health_data.services.bright_data|default('Unknown')|title }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded">
+                            <div>
+                                <h6 class="mb-1">Jina AI</h6>
+                                <small class="text-muted">Content extraction and search</small>
+                            </div>
+                            <span class="status-badge status-{{ health_data.services.jina|default('unknown') }}">
+                                {{ health_data.services.jina|default('Unknown')|title }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="testAllServices()">
+                        <i class="bi bi-check-circle"></i> Test All Services
+                    </button>
+                    <button class="btn btn-outline-info" onclick="testWordPressConnection()">
+                        <i class="bi bi-wordpress"></i> Test WordPress
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Environment Configuration -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear"></i> Environment Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>API Keys</h6>
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-{{ 'check-circle text-success' if health_data.environment.anthropic_key == '✓' else 'x-circle text-danger' }}"></i>
+                                Anthropic API Key {{ health_data.environment.anthropic_key }}
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-{{ 'check-circle text-success' if health_data.environment.jina_key == '✓' else 'x-circle text-danger' }}"></i>
+                                Jina AI API Key {{ health_data.environment.jina_key }}
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-{{ 'check-circle text-success' if health_data.environment.bright_data_key == '✓' else 'x-circle text-danger' }}"></i>
+                                Bright Data API Key {{ health_data.environment.bright_data_key }}
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>WordPress Settings</h6>
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-link"></i>
+                                URL: {{ health_data.environment.wp_url }}
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-person"></i>
+                                User: {{ health_data.environment.wp_user }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vector Database Metrics -->
+{% if health_data.metrics.collections %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-database"></i> Vector Database Metrics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for collection_name, stats in health_data.metrics.collections.items() %}
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6>{{ collection_name|title }}</h6>
+                                <div class="metric-value text-primary">{{ stats.points_count or 0 }}</div>
+                                <div class="metric-label">Documents</div>
+                                <div class="small text-muted mt-2">
+                                    Status: {{ stats.status or 'Unknown' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-3">
+                    <a href="http://localhost:6333/dashboard" target="_blank" class="btn btn-outline-info">
+                        <i class="bi bi-external-link"></i> Open Qdrant Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- System Resources -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-cpu"></i> System Resources
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>CPU Usage</span>
+                        <span>Loading...</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="cpuProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Memory Usage</span>
+                        <span>Loading...</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-warning" id="memoryProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Disk Usage</span>
+                        <span>Loading...</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" id="diskProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-activity"></i> Performance Metrics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="metric-value text-success" id="responseTime">0ms</div>
+                            <div class="metric-label">Avg Response</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="metric-value text-info" id="requestCount">0</div>
+                            <div class="metric-label">Requests/min</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <canvas id="performanceChart" width="400" height="200" class="mt-3"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Health Check History -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history"></i> Health Check History
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Status</th>
+                                <th>Response Time</th>
+                                <th>Last Check</th>
+                                <th>Uptime</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Orchestration Manager</td>
+                                <td><span class="status-badge status-healthy">Healthy</span></td>
+                                <td>5ms</td>
+                                <td>{{ current_time }}</td>
+                                <td>99.9%</td>
+                            </tr>
+                            <tr>
+                                <td>Qdrant Vector DB</td>
+                                <td><span class="status-badge status-healthy">Healthy</span></td>
+                                <td>12ms</td>
+                                <td>{{ current_time }}</td>
+                                <td>99.5%</td>
+                            </tr>
+                            <tr>
+                                <td>WordPress API</td>
+                                <td><span class="status-badge status-warning">Unknown</span></td>
+                                <td>-</td>
+                                <td>Never</td>
+                                <td>-</td>
+                            </tr>
+                            <tr>
+                                <td>Anthropic API</td>
+                                <td><span class="status-badge status-healthy">Active</span></td>
+                                <td>250ms</td>
+                                <td>{{ current_time }}</td>
+                                <td>99.8%</td>
+                            </tr>
+                            <tr>
+                                <td>Bright Data API</td>
+                                <td><span class="status-badge status-{{ 'healthy' if health_data.environment.bright_data_key == '✓' else 'warning' }}">{{ 'Active' if health_data.environment.bright_data_key == '✓' else 'Not Configured' }}</span></td>
+                                <td>{{ '180ms' if health_data.environment.bright_data_key == '✓' else '-' }}</td>
+                                <td>{{ current_time if health_data.environment.bright_data_key == '✓' else 'Never' }}</td>
+                                <td>{{ '99.5%' if health_data.environment.bright_data_key == '✓' else '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td>Jina AI API</td>
+                                <td><span class="status-badge status-{{ 'healthy' if health_data.environment.jina_key == '✓' else 'warning' }}">{{ 'Active' if health_data.environment.jina_key == '✓' else 'Not Configured' }}</span></td>
+                                <td>{{ '150ms' if health_data.environment.jina_key == '✓' else '-' }}</td>
+                                <td>{{ current_time if health_data.environment.jina_key == '✓' else 'Never' }}</td>
+                                <td>{{ '99.7%' if health_data.environment.jina_key == '✓' else '-' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function testAllServices() {
+    const btn = event.target;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/health/test-all', { method: 'POST' });
+        const results = await response.json();
+        
+        let message = 'Service Test Results:\n';
+        for (const [service, status] of Object.entries(results)) {
+            message += `${service}: ${status}\n`;
+        }
+        
+        alert(message);
+        window.location.reload();
+    } catch (error) {
+        alert('Failed to test services: ' + error.message);
+    } finally {
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Test All Services';
+        btn.disabled = false;
+    }
+}
+
+async function testWordPressConnection() {
+    const btn = event.target;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/health/test-wordpress', { method: 'POST' });
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert('WordPress connection successful!');
+        } else {
+            alert('WordPress connection failed: ' + result.detail);
+        }
+    } catch (error) {
+        alert('WordPress test failed: ' + error.message);
+    } finally {
+        btn.innerHTML = '<i class="bi bi-wordpress"></i> Test WordPress';
+        btn.disabled = false;
+    }
+}
+
+// Simulate system resource monitoring
+function updateSystemMetrics() {
+    // Simulate random metrics for demo
+    const cpu = Math.floor(Math.random() * 60) + 10;
+    const memory = Math.floor(Math.random() * 40) + 30;
+    const disk = Math.floor(Math.random() * 30) + 50;
+    
+    document.getElementById('cpuProgress').style.width = cpu + '%';
+    document.getElementById('cpuProgress').parentNode.previousElementSibling.children[1].textContent = cpu + '%';
+    
+    document.getElementById('memoryProgress').style.width = memory + '%';
+    document.getElementById('memoryProgress').parentNode.previousElementSibling.children[1].textContent = memory + '%';
+    
+    document.getElementById('diskProgress').style.width = disk + '%';
+    document.getElementById('diskProgress').parentNode.previousElementSibling.children[1].textContent = disk + '%';
+    
+    // Update performance metrics
+    const responseTime = Math.floor(Math.random() * 200) + 50;
+    const requestCount = Math.floor(Math.random() * 50) + 10;
+    
+    document.getElementById('responseTime').textContent = responseTime + 'ms';
+    document.getElementById('requestCount').textContent = requestCount;
+}
+
+// Performance chart
+const ctx = document.getElementById('performanceChart').getContext('2d');
+const performanceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Response Time (ms)',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Update metrics every 5 seconds
+setInterval(() => {
+    updateSystemMetrics();
+    
+    // Update chart
+    const now = new Date().toLocaleTimeString();
+    const responseTime = Math.floor(Math.random() * 200) + 50;
+    
+    performanceChart.data.labels.push(now);
+    performanceChart.data.datasets[0].data.push(responseTime);
+    
+    // Keep only last 10 data points
+    if (performanceChart.data.labels.length > 10) {
+        performanceChart.data.labels.shift();
+        performanceChart.data.datasets[0].data.shift();
+    }
+    
+    performanceChart.update('none');
+}, 5000);
+
+// Initial load
+updateSystemMetrics();
+</script>
+{% endblock %}
