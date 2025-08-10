@@ -1157,7 +1157,7 @@ async def dashboard_home(request: Request):
         
         # Get basic stats
         pipeline_stats = await orchestration_status.get_pipeline_stats() if orchestration_status else {}
-        vector_stats = await vector_manager.get_collection_stats() if vector_manager else {}
+        vector_stats = vector_manager.get_collection_stats() if vector_manager else {}
         
         context = {
             "request": request,
@@ -1251,11 +1251,13 @@ async def health_dashboard(request: Request):
         # Check vector database
         try:
             vector_manager = get_vector_manager()
-            collections = await vector_manager.get_collection_stats() if vector_manager else {}
+            collections = vector_manager.get_collection_stats() if vector_manager else {}
             health_data["services"]["qdrant"] = "healthy" if collections else "down"
             health_data["metrics"]["collections"] = collections
-        except:
+        except Exception as e:
+            logger.error(f"Qdrant health check error: {e}")
             health_data["services"]["qdrant"] = "error"
+            health_data["metrics"]["collections"] = {}
         
         # Check WordPress connection
         try:

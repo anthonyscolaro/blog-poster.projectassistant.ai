@@ -81,16 +81,16 @@
   },
   "9de86f0b-bd1e-4a71-a15c-de69e25ebd16": {
     "id": "9de86f0b-bd1e-4a71-a15c-de69e25ebd16",
-    "name": "Test ServiceDogUS",
-    "description": "Test configuration for ServiceDogUS production",
-    "website_url": "https://servicedogus.org",
+    "name": "ServiceDogUS Production",
+    "description": "ServiceDogUS production",
+    "website_url": "https://www.servicedogus.org",
     "created_at": "2025-08-11 06:43:44.271991",
-    "updated_at": "2025-08-11 06:43:44.272008",
+    "updated_at": "2025-08-10 23:30:54.950027",
     "is_active": true,
     "wordpress": {
       "url": "https://wp.servicedogus.org",
-      "username": "test-user",
-      "password": "test-password",
+      "username": "anthony",
+      "password": "27MxGGUUNOxYLicqKvVwnlef",
       "auth_method": "application",
       "verify_ssl": true,
       "graphql_endpoint": "/graphql"

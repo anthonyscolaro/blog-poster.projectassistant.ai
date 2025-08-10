@@ -523,32 +523,47 @@ class VectorSearchManager:
     
     def get_collection_stats(self, collection: Optional[str] = None) -> Dict[str, Any]:
         """
-        Get statistics for a collection
+        Get statistics for a collection or all collections
         
         Args:
-            collection: Collection name
+            collection: Collection name (if None, returns stats for all collections)
             
         Returns:
             Collection statistics
         """
-        collection = collection or self.collection_name
-        
-        try:
-            info = self.client.get_collection(collection)
-            return {
-                "collection": collection,
-                "points_count": info.points_count,
-                "vectors_count": info.vectors_count,
-                "indexed_vectors_count": info.indexed_vectors_count,
-                "status": info.status,
-                "config": {
-                    "vector_size": info.config.params.vectors.size,
-                    "distance": info.config.params.vectors.distance
+        if collection:
+            # Get stats for specific collection
+            try:
+                info = self.client.get_collection(collection)
+                return {
+                    "collection": collection,
+                    "points_count": info.points_count,
+                    "vectors_count": info.vectors_count,
+                    "indexed_vectors_count": info.indexed_vectors_count,
+                    "status": info.status,
+                    "config": {
+                        "vector_size": info.config.params.vectors.size,
+                        "distance": info.config.params.vectors.distance
+                    }
                 }
-            }
-        except Exception as e:
-            logger.error(f"Failed to get collection stats: {e}")
-            return {"error": str(e)}
+            except Exception as e:
+                logger.error(f"Failed to get collection stats: {e}")
+                return {"error": str(e)}
+        else:
+            # Get stats for all collections
+            all_stats = {}
+            for coll_name in [self.ARTICLES_COLLECTION, self.COMPETITORS_COLLECTION, self.RESEARCH_COLLECTION]:
+                try:
+                    info = self.client.get_collection(coll_name)
+                    all_stats[coll_name] = {
+                        "points_count": info.points_count,
+                        "vectors_count": info.vectors_count,
+                        "status": info.status
+                    }
+                except Exception as e:
+                    logger.warning(f"Collection {coll_name} not found or error: {e}")
+                    all_stats[coll_name] = {"points_count": 0, "status": "not_found"}
+            return all_stats
     
     async def delete_document(
         self,
