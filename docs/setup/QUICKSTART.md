@@ -202,7 +202,7 @@ The project includes test files for quick validation:
 - **API Documentation**: http://localhost:8088/docs
 - **Service Logs**: `docker compose logs -f`
 - **Setup Guide**: See [SETUP.md](SETUP.md)
-- **Full Documentation**: See [README.md](README.md)
+- **Full Documentation**: See [README.md](../../README.md)
 
 ## 🎉 Success Checklist
 

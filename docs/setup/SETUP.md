@@ -311,5 +311,5 @@ Once setup is complete:
 4. Set up monitoring dashboards
 5. Create initial article topics
 
-For usage instructions, see `QUICKSTART.md`.
-For production deployment, see `INFRASTRUCTURE_SETUP.md`.
+For usage instructions, see [QUICKSTART.md](QUICKSTART.md).
+For production deployment, see [Infrastructure Setup](../deployment/INFRASTRUCTURE_SETUP.md).

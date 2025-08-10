@@ -84,8 +84,8 @@
 - **Testing Workflow**:
   1. Start services: `docker compose up -d`
   2. Check health: `curl http://localhost:8088/health`
-  3. Test SEO: `curl -X POST http://localhost:8088/seo/lint -d @test-seo.json`
-  4. Test publish: `curl -X POST http://localhost:8088/publish/wp -d @test-input.json`
+  3. Test SEO: `curl -X POST http://localhost:8088/seo/lint -d @examples/test-seo.json`
+  4. Test publish: `curl -X POST http://localhost:8088/publish/wp -d @examples/test-input.json`
   
 - **Common Issues & Solutions**:
   - **Qdrant unhealthy**: Relax health check, use `service_started` condition

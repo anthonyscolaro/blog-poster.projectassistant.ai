@@ -40,46 +40,25 @@ This service runs separately from the main ServiceDogUS application with its own
 
 Note: These ports are different from the main site to avoid conflicts.
 
-## Quick Start
+## 🚀 Quick Start
 
-### Prerequisites
+```bash
+# 1. Clone and configure
+git clone https://github.com/anthonyscolaro/blog-poster.git
+cd blog-poster
+cp .env.local.example .env.local
 
-- Docker and Docker Compose installed
-- API keys for AI providers (Anthropic or OpenAI)
-- WordPress site with WPGraphQL installed
-- Jina AI API key for web scraping
+# 2. Add your API keys to .env.local
+nano .env.local
 
-### Installation
+# 3. Start services
+docker compose up -d
 
-1. **Configure Environment**
-   ```bash
-   cp .env.local.example .env.local
-   # Edit .env.local with your API keys and WordPress credentials
-   ```
+# 4. Verify health
+curl http://localhost:8088/health
+```
 
-2. **Run Setup Script**
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-
-   The setup script will:
-   - Verify required API keys
-   - Create necessary directories
-   - Start Docker services
-   - Run health checks
-
-3. **Verify Services**
-   ```bash
-   # Check service status
-   docker compose ps
-   
-   # View logs
-   docker compose logs -f
-   
-   # Access API documentation
-   open http://localhost:8088/docs
-   ```
+For detailed setup instructions, see [docs/setup/QUICKSTART.md](docs/setup/QUICKSTART.md).
 
 ## Configuration
 
@@ -318,12 +297,41 @@ The service includes cost controls:
 - `MAX_MONTHLY_COST`: Monthly budget cap
 - Cost tracking and alerts at 80% threshold
 
+## 📚 Documentation
+
+All documentation is organized in the `docs/` directory:
+
+- **[Documentation Index](docs/index.md)** - Complete documentation overview
+- **[Setup Guide](docs/setup/SETUP.md)** - Detailed installation instructions  
+- **[Quick Start](docs/setup/QUICKSTART.md)** - 5-minute setup
+- **[API Documentation](docs/api/blog-poster.md)** - Endpoint details
+- **[Development Guides](docs/guides/)** - Best practices and workflows
+- **[Deployment Guides](docs/deployment/)** - Production deployment
+
+## 📁 Project Structure
+
+```
+blog-poster/
+├── app.py                    # Main FastAPI application
+├── orchestrator.py           # Workflow orchestration  
+├── wordpress_agent.py        # WordPress publishing
+├── contracts.py              # Data models
+├── docker-compose.yml        # Services
+├── docs/                     # All documentation
+├── PRPs/                     # Product requirements
+├── config/                   # Configuration files
+├── examples/                 # Example requests
+├── scripts/                  # Utility scripts
+└── tests/                    # Test suite (planned)
+```
+
 ## Support
 
 For issues or questions:
-1. Check the logs: `docker compose logs`
-2. Review the API docs: http://localhost:8088/docs
-3. Consult the main project documentation
+1. Check [Documentation](docs/index.md)
+2. Review [Quick Start Guide](docs/setup/QUICKSTART.md)
+3. View logs: `docker compose logs -f`
+4. API docs: http://localhost:8088/docs
 
 ## License
 
