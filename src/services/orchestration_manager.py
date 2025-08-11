@@ -11,6 +11,7 @@ Coordinates the sequential execution of all agents:
 import asyncio
 import logging
 import hashlib
+import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,7 @@ from agents.article_generation_agent import ArticleGenerationAgent, GeneratedArt
 from agents.legal_fact_checker_agent import LegalFactCheckerAgent, LegalFactCheckReport
 from .wordpress_publisher import WordPressPublisher
 from .vector_search import VectorSearchManager
+from .pipeline_logger import pipeline_logger, LogLevel
 
 logger = logging.getLogger(__name__)
 
