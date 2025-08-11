@@ -162,11 +162,11 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <button class="btn btn-outline-primary btn-sm"
-                                                onclick="viewArticle('{{ article.file_path }}')"
-                                                title="View Article">
+                                        <a href="/articles/{{ article.file_path.split('/')[-1].replace('.json', '') }}" 
+                                           class="btn btn-outline-primary btn-sm"
+                                           title="View Article">
                                             <i class="bi bi-eye"></i>
-                                        </button>
+                                        </a>
                                         
                                         {% if article.wordpress_post_id %}
                                         <a href="{{ article.wordpress_url }}" 

@@ -165,7 +165,7 @@
 </div>
 
 <!-- Add/Edit Competitor Modal -->
-<div class="modal fade" id="competitorModal" tabindex="-1">
+<div class="modal fade" id="competitorModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -173,7 +173,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="competitorForm">
+                <form id="competitorForm" onsubmit="return false;">
                     <input type="hidden" id="competitorId">
                     
                     <div class="row mb-3">
@@ -249,7 +249,7 @@
 </div>
 
 <!-- Competitor Details Modal -->
-<div class="modal fade" id="detailsModal" tabindex="-1">
+<div class="modal fade" id="detailsModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -271,8 +271,14 @@ let competitorModal;
 let detailsModal;
 
 document.addEventListener('DOMContentLoaded', function() {
-    competitorModal = new bootstrap.Modal(document.getElementById('competitorModal'));
-    detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+    competitorModal = new bootstrap.Modal(document.getElementById('competitorModal'), {
+        backdrop: 'static',
+        keyboard: false
+    });
+    detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
+        backdrop: 'static',
+        keyboard: false
+    });
 });
 
 function showAddCompetitorModal() {
@@ -307,12 +313,21 @@ async function editCompetitor(competitorId) {
 }
 
 async function saveCompetitor() {
+    // Validate required fields first
+    const name = document.getElementById('competitorName').value;
+    const domain = document.getElementById('competitorDomain').value;
+    
+    if (!name || !domain) {
+        showToast('Please fill in all required fields', 'warning');
+        return;
+    }
+    
     const competitorId = document.getElementById('competitorId').value;
     const isEdit = !!competitorId;
     
     const competitorData = {
-        name: document.getElementById('competitorName').value,
-        domain: document.getElementById('competitorDomain').value.replace(/^https?:\/\//, ''),
+        name: name,
+        domain: domain.replace(/^https?:\/\//, ''),
         description: document.getElementById('competitorDescription').value,
         blog_url: document.getElementById('blogUrl').value,
         news_url: document.getElementById('newsUrl').value,

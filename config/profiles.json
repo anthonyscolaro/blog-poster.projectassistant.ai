@@ -85,12 +85,12 @@
     "description": "ServiceDogUS production",
     "website_url": "https://www.servicedogus.org",
     "created_at": "2025-08-11 06:43:44.271991",
-    "updated_at": "2025-08-10 23:30:54.950027",
+    "updated_at": "2025-08-11 19:20:58.427329",
     "is_active": true,
     "wordpress": {
       "url": "https://wp.servicedogus.org",
       "username": "anthony",
-      "password": "27MxGGUUNOxYLicqKvVwnlef",
+      "password": "xXm1 wxox bNCc y4Cq Sv1A ff8o",
       "auth_method": "application",
       "verify_ssl": true,
       "graphql_endpoint": "/graphql"

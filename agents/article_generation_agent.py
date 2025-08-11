@@ -16,6 +16,9 @@ import anthropic
 import openai
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+# Import WordPress conversion utility
+from src.utils.markdown_to_wp_blocks import markdown_to_wp_blocks
+
 logger = logging.getLogger(__name__)
 
 
@@ -191,19 +194,22 @@ class ArticleGenerationAgent:
                 content, seo_requirements, topic
             )
             
-            # Step 4: Calculate costs
+            # Step 4: Convert Markdown to WordPress HTML
+            content_html = self._convert_to_wordpress_html(content)
+            
+            # Step 5: Calculate costs
             cost_tracking = self._calculate_costs()
             
             # Check cost limit
             if cost_tracking.cost > self.max_cost_per_article:
                 logger.warning(f"Article generation exceeded cost limit: ${cost_tracking.cost:.2f}")
             
-            # Step 5: Create final article
+            # Step 6: Create final article
             article = self._assemble_article(
-                content, metadata, outline, seo_requirements, cost_tracking
+                content, content_html, metadata, outline, seo_requirements, cost_tracking
             )
             
-            # Step 6: Cache the article
+            # Step 7: Cache the article
             self._cache_article(article)
             
             return article
@@ -322,6 +328,8 @@ Requirements:
 - Use markdown formatting with proper headings (##, ###)
 - Include a clear call-to-action
 - Make it engaging and valuable for readers
+- Focus on creating content that will convert well to WordPress blocks
+- Use standard markdown syntax (no complex HTML or special formatting)
 
 IMPORTANT: 
 - Be specific about ADA requirements (28 CFR Part 36)
@@ -329,6 +337,9 @@ IMPORTANT:
 - Include the two questions businesses can ask
 - Mention that registration/certification is NOT required by ADA
 - Be empathetic to both handlers and business owners
+- DO NOT add any completion markers like "[End of Article]", "[END]", or similar
+- DO NOT include disclaimers about being an AI assistant
+- End naturally with a strong conclusion or call-to-action
 
 Write the complete article now:"""
 
@@ -556,7 +567,10 @@ Format as JSON:
         content: str,
         seo_requirements: SEORequirements
     ) -> str:
-        """Optimize content for SEO requirements"""
+        """Optimize content for SEO requirements and clean up AI artifacts"""
+        
+        # First, clean up common AI artifacts and unwanted text
+        content = self._clean_ai_artifacts(content)
         
         # Count keyword occurrences
         primary_count = content.lower().count(seo_requirements.primary_keyword.lower())
@@ -579,9 +593,81 @@ Format as JSON:
         
         return content
     
+    def _clean_ai_artifacts(self, content: str) -> str:
+        """
+        Remove common AI-generated artifacts and unwanted text patterns
+        
+        Args:
+            content: Raw content from LLM
+        
+        Returns:
+            Cleaned content ready for publication
+        """
+        import re
+        
+        # List of patterns to remove (case-insensitive)
+        unwanted_patterns = [
+            r'\[End of Article\]',
+            r'\[END\]',
+            r'\[/Article\]',
+            r'</article>',
+            r'---\s*End\s*---',
+            r'Article complete\.?',
+            r'Content complete\.?',
+            r'Generation complete\.?',
+            r'\*\*\[End of content\]\*\*',
+            r'That concludes the article\.?',
+            r'This completes the article\.?',
+            r'---End of Content---',
+            r'Advertisement:.*$',  # Remove any ad-like content
+            r'Disclaimer:.*(?=\n#|\n\n|$)',  # Remove generic disclaimers (keep legal ones)
+            r'\bAI Assistant:.*$',  # Remove AI assistant signatures
+            r'\bAssistant:.*$',     # Remove assistant signatures
+        ]
+        
+        # Clean each pattern
+        for pattern in unwanted_patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Clean up excessive whitespace
+        content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)  # Multiple empty lines to double
+        content = re.sub(r'^\s+|\s+$', '', content)  # Trim start/end whitespace
+        
+        # Remove trailing periods or markers that might be completion artifacts
+        content = re.sub(r'\.\.\.$', '', content.strip())
+        content = re.sub(r'\*{3,}$', '', content.strip())  # Remove trailing asterisks
+        content = re.sub(r'-{3,}$', '', content.strip())   # Remove trailing dashes
+        
+        # Log if we cleaned anything
+        if len(content.strip()) != len(content):
+            logger.info("Cleaned AI artifacts from generated content")
+        
+        return content.strip()
+    
+    def _convert_to_wordpress_html(self, markdown_content: str) -> str:
+        """
+        Convert Markdown content to WordPress block HTML
+        
+        Args:
+            markdown_content: The raw markdown content from LLM
+        
+        Returns:
+            WordPress block-formatted HTML
+        """
+        try:
+            # Convert Markdown to WordPress blocks
+            _, wp_html = markdown_to_wp_blocks(markdown_content, parse_frontmatter=False)
+            logger.info("Successfully converted Markdown to WordPress HTML")
+            return wp_html
+        except Exception as e:
+            logger.error(f"Failed to convert Markdown to WordPress HTML: {e}")
+            # Fallback to raw markdown if conversion fails
+            return markdown_content
+    
     def _assemble_article(
         self,
         content: str,
+        content_html: str,
         metadata: Dict[str, Any],
         outline: ArticleOutline,
         seo_requirements: SEORequirements,
@@ -607,6 +693,7 @@ Format as JSON:
             meta_title=outline.meta_title,
             meta_description=outline.meta_description,
             content_markdown=content,
+            content_html=content_html,
             primary_keyword=seo_requirements.primary_keyword,
             secondary_keywords=seo_requirements.secondary_keywords,
             word_count=word_count,

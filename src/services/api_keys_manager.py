@@ -9,6 +9,8 @@ from datetime import datetime
 from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field
 import logging
+import httpx
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +188,7 @@ class APIKeysManager:
         validation_rules = {
             'jina_api_key': lambda x: x.startswith('jina_'),
             'anthropic_api_key': lambda x: x.startswith('sk-ant-'),
-            'openai_api_key': lambda x: x.startswith('sk-'),
+            'openai_api_key': lambda x: len(x) > 20,  # OpenAI keys can have various formats
             'bright_data_api_key': lambda x: len(x) > 20,
             'wordpress_app_password': lambda x: len(x) >= 24  # WordPress app passwords are 24 chars
         }
@@ -208,12 +210,107 @@ class APIKeysManager:
         if not key_value:
             return {"success": False, "message": "Key not configured"}
         
-        # Implement actual API tests here
-        # For now, just validate format
-        if self.validate_key(key_name, key_value):
-            return {"success": True, "message": "Key format valid"}
-        else:
+        # First validate format
+        if not self.validate_key(key_name, key_value):
             return {"success": False, "message": "Invalid key format"}
+        
+        # Run async test
+        try:
+            # Try to get existing event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # If we're in an async context, create a task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self._test_api_key_async(key_name, key_value))
+                    result = future.result(timeout=15)
+                return result
+            except RuntimeError:
+                # No running loop, create a new one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                result = loop.run_until_complete(self._test_api_key_async(key_name, key_value))
+                loop.close()
+                return result
+        except Exception as e:
+            logger.error(f"Error testing {key_name}: {e}")
+            return {"success": False, "message": f"Test failed: {str(e)}"}
+    
+    async def _test_api_key_async(self, key_name: str, key_value: str) -> Dict[str, Any]:
+        """
+        Async method to test API keys against their respective services
+        
+        Args:
+            key_name: Name of the key to test
+            key_value: The actual API key value
+        
+        Returns:
+            Test result with status and message
+        """
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                if key_name == 'jina_api_key':
+                    # Test Jina AI API - Use the search endpoint with a simple query
+                    response = await client.post(
+                        "https://r.jina.ai/https://example.com",
+                        headers={"Authorization": f"Bearer {key_value}"}
+                    )
+                    if response.status_code in [200, 201]:
+                        return {"success": True, "message": "Jina AI API key is valid"}
+                    elif response.status_code == 401:
+                        return {"success": False, "message": "Invalid Jina AI API key"}
+                    else:
+                        return {"success": False, "message": f"Jina API returned status {response.status_code}"}
+                
+                elif key_name == 'anthropic_api_key':
+                    # Test Anthropic API
+                    response = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": key_value,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json"
+                        },
+                        json={
+                            "model": "claude-3-haiku-20240307",
+                            "messages": [{"role": "user", "content": "Hi"}],
+                            "max_tokens": 1
+                        }
+                    )
+                    if response.status_code == 200:
+                        return {"success": True, "message": "Anthropic API key is valid"}
+                    elif response.status_code == 401:
+                        return {"success": False, "message": "Invalid Anthropic API key"}
+                    else:
+                        return {"success": False, "message": f"Anthropic API returned status {response.status_code}"}
+                
+                elif key_name == 'openai_api_key':
+                    # Test OpenAI API
+                    response = await client.get(
+                        "https://api.openai.com/v1/models",
+                        headers={"Authorization": f"Bearer {key_value}"}
+                    )
+                    if response.status_code == 200:
+                        return {"success": True, "message": "OpenAI API key is valid"}
+                    elif response.status_code == 401:
+                        return {"success": False, "message": "Invalid OpenAI API key"}
+                    else:
+                        return {"success": False, "message": f"OpenAI API returned status {response.status_code}"}
+                
+                elif key_name == 'bright_data_api_key':
+                    # For Bright Data, we'll just validate format since test endpoints vary
+                    return {"success": True, "message": "Bright Data API key format is valid"}
+                
+                else:
+                    return {"success": False, "message": f"Unknown key type: {key_name}"}
+                    
+            except httpx.TimeoutException:
+                return {"success": False, "message": "API test timed out"}
+            except httpx.RequestError as e:
+                return {"success": False, "message": f"Connection error: {str(e)}"}
+            except Exception as e:
+                logger.error(f"Unexpected error testing {key_name}: {e}")
+                return {"success": False, "message": f"Unexpected error: {str(e)}"}
     
     def clear_key(self, key_name: str):
         """Clear a specific API key"""

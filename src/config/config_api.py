@@ -340,12 +340,51 @@ class WordPressTestRequest(BaseModel):
     verify_ssl: bool = True
 
 
+@router.get("/check-wp-api")
+async def check_wordpress_api(url: str):
+    """Check if WordPress REST API is accessible at the given URL"""
+    import httpx
+    
+    # Clean the URL
+    url = url.rstrip('/').replace('/wp-json', '')
+    
+    # Common REST API endpoints to try
+    endpoints = [
+        f"{url}/wp-json/wp/v2/posts",
+        f"{url}/index.php?rest_route=/wp/v2/posts",
+        f"{url}/?rest_route=/wp/v2/posts"
+    ]
+    
+    async with httpx.AsyncClient(verify=False, timeout=5.0) as client:
+        for endpoint in endpoints:
+            try:
+                response = await client.head(endpoint)
+                if response.status_code in [200, 401, 403]:  # API exists but may need auth
+                    return JSONResponse({
+                        "success": True,
+                        "api_url": endpoint.split('?')[0].replace('/posts', ''),
+                        "message": "REST API found"
+                    })
+            except:
+                continue
+    
+    return JSONResponse({
+        "success": False,
+        "message": "Could not detect REST API"
+    })
+
 @router.post("/test-wp-connection")
 async def test_wordpress_connection_form(request: WordPressTestRequest):
     """Test WordPress connection with form values"""
     try:
         # Import WordPress publisher to test connection
         from ..services.wordpress_publisher import WordPressPublisher
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Log the request details (without password)
+        logger.info(f"Testing WordPress connection to {request.wp_url} with user {request.username}")
         
         # Create publisher with form settings
         publisher = WordPressPublisher(
@@ -371,16 +410,28 @@ async def test_wordpress_connection_form(request: WordPressTestRequest):
                 }
             })
         else:
+            # Check common issues
+            error_msg = "Unable to connect to WordPress API. "
+            
+            if not request.verify_ssl and "https" in request.wp_url:
+                error_msg += "SSL verification is disabled. "
+            
+            if request.auth_method == "application":
+                error_msg += "Ensure you're using an Application Password, not your regular password."
+            else:
+                error_msg += "Check your username and password."
+                
             return JSONResponse({
                 "success": False,
-                "message": f"WordPress connection failed to {request.wp_url}",
-                "error": "Unable to connect to WordPress API"
+                "message": f"WordPress connection failed",
+                "error": error_msg
             })
     
     except Exception as e:
+        logger.error(f"WordPress connection test exception: {str(e)}")
         return JSONResponse({
             "success": False,
-            "message": f"Connection test failed",
+            "message": "Connection test failed",
             "error": str(e)
         })
 
