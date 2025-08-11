@@ -1,409 +1,275 @@
-name: "Data Persistence Layer - Production Database Implementation"
+name: "Data Persistence - Simple PostgreSQL Implementation"
 description: |
 
 ## Purpose
-Transform the blog-poster application from file-based storage to a production-ready database system with proper models, migrations, and data integrity.
+Implement straightforward database persistence using PostgreSQL with pgvector for the blog-poster micro-SaaS.
 
 ## Core Principles
-1. **Data Integrity**: ACID compliance for critical operations
-2. **Scalability**: Handle thousands of articles and pipeline runs
-3. **Performance**: Optimized queries and proper indexing
-4. **Maintainability**: Clear schema migrations and documentation
+1. **Keep It Simple**: Use SQLAlchemy ORM, avoid complex patterns
+2. **Just Enough**: Only the tables we actually need
+3. **Practical Indexing**: Index what we query, not everything
+4. **Simple Migrations**: Alembic for schema changes
 
 ---
 
 ## Goal
-Replace all file-based storage (JSON files, in-memory state) with PostgreSQL database models and implement proper data persistence patterns.
+Move from file-based storage to PostgreSQL database with basic user management and data persistence.
 
 ## Why
-- **Current Issues**: Articles lost on restart, no query capabilities, no concurrent access
-- **Production Need**: Multi-user support, data analytics, backup/restore
-- **Scale Requirements**: Support millions of articles, search across all content
-- **Compliance**: Audit trails for content generation and publishing
+- **Current State**: JSON files, lost on restart, single-user only
+- **Target State**: PostgreSQL persistence, multi-user support
+- **Business Need**: Users need their data to persist
 
 ## What
-PostgreSQL database with SQLAlchemy ORM models for:
-- Articles (drafts, published, archived)
-- Pipeline executions and history
-- Competitor monitoring data
-- User management and authentication
-- API keys and configuration
-- Cost tracking and analytics
+Essential database models:
+- Users & authentication
+- Articles with user ownership
+- Pipeline runs & history
+- API keys per user
+- Simple cost tracking
 
 ### Success Criteria
-- [ ] All data persisted to PostgreSQL
-- [ ] Zero data loss on application restart
-- [ ] Database migrations with Alembic
-- [ ] Connection pooling configured
-- [ ] Backup and restore procedures
-- [ ] Query performance < 100ms for common operations
-- [ ] Full-text search on articles
-- [ ] Data retention policies implemented
+- [x] PostgreSQL with pgvector working
+- [x] Data migrated from JSON files
+- [x] Repository pattern implemented
+- [ ] User authentication added
+- [ ] Articles scoped to users
+- [ ] Basic cost tracking
 
-## All Needed Context
+## Database Schema (Simplified)
 
-### Current State Analysis
-```yaml
-Current Storage:
-  Articles:
-    location: data/articles/*.json
-    issues: 
-      - No concurrent access control
-      - No versioning
-      - Lost on container rebuild
-      
-  Pipeline History:
-    location: In-memory list
-    issues:
-      - Lost on restart
-      - No persistence
-      - Limited to last 100 entries
-      
-  Configuration:
-    location: .env files
-    issues:
-      - No audit trail
-      - No multi-tenant support
-      - Secrets in plain text
-```
-
-### Database Schema Design
 ```sql
--- Core Tables
+-- Users table (simple)
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    username VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    api_key VARCHAR(255) UNIQUE,
     is_active BOOLEAN DEFAULT true,
-    is_admin BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Articles (what we already have + user_id)
 CREATE TABLE articles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
-    pipeline_id UUID REFERENCES pipelines(id),
-    
-    -- Content fields
     title VARCHAR(500) NOT NULL,
-    slug VARCHAR(500) UNIQUE NOT NULL,
-    content_markdown TEXT NOT NULL,
+    slug VARCHAR(500) NOT NULL,
+    content_markdown TEXT,
     content_html TEXT,
-    excerpt TEXT,
-    
-    -- SEO fields
-    meta_title VARCHAR(160),
     meta_description VARCHAR(320),
     primary_keyword VARCHAR(100),
-    secondary_keywords JSONB,
-    seo_score DECIMAL(3,2),
-    
-    -- WordPress fields
+    seo_score FLOAT,
     wp_post_id INTEGER,
-    wp_url VARCHAR(500),
-    wp_status VARCHAR(50),
-    
-    -- Analytics
-    word_count INTEGER,
-    reading_time INTEGER,
-    internal_links INTEGER,
-    external_links INTEGER,
-    
-    -- Status tracking
+    wp_url TEXT,
     status VARCHAR(50) DEFAULT 'draft',
-    published_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
     
-    -- Full-text search
-    search_vector tsvector,
-    
-    INDEXES:
-    - idx_articles_slug ON slug
-    - idx_articles_status ON status
-    - idx_articles_created ON created_at DESC
-    - idx_articles_search ON search_vector USING GIN
+    INDEX idx_user_articles (user_id),
+    INDEX idx_slug (slug)
 );
 
+-- Pipeline runs (simplified)
 CREATE TABLE pipelines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
-    
-    -- Execution details
-    status VARCHAR(50) DEFAULT 'pending',
+    article_id UUID REFERENCES articles(id),
+    status VARCHAR(50),
+    total_cost DECIMAL(10,4),
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
-    execution_time_ms INTEGER,
+    error_message TEXT,
     
-    -- Pipeline data
-    input_config JSONB NOT NULL,
-    competitor_data JSONB,
-    topic_recommendation JSONB,
-    fact_check_report JSONB,
-    wordpress_result JSONB,
-    
-    -- Cost tracking
-    total_cost DECIMAL(10,4),
-    llm_tokens_used INTEGER,
-    api_calls_made INTEGER,
-    
-    -- Error handling
-    errors JSONB,
-    warnings JSONB,
-    retry_count INTEGER DEFAULT 0,
-    
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    INDEX idx_user_pipelines (user_id)
 );
 
-CREATE TABLE competitors (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    domain VARCHAR(255) UNIQUE NOT NULL,
-    name VARCHAR(255),
-    
-    -- Monitoring config
-    is_active BOOLEAN DEFAULT true,
-    check_frequency_hours INTEGER DEFAULT 24,
-    last_checked_at TIMESTAMP,
-    
-    -- Statistics
-    total_articles_found INTEGER DEFAULT 0,
-    new_articles_30d INTEGER DEFAULT 0,
-    trending_topics JSONB,
-    
-    -- Metadata
-    metadata JSONB,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE competitor_articles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    competitor_id UUID REFERENCES competitors(id),
-    
-    url VARCHAR(500) UNIQUE NOT NULL,
-    title VARCHAR(500),
-    published_date DATE,
-    author VARCHAR(255),
-    
-    -- Content analysis
-    word_count INTEGER,
-    main_topics JSONB,
-    keywords JSONB,
-    
-    -- Performance metrics
-    social_shares INTEGER,
-    backlinks INTEGER,
-    
-    discovered_at TIMESTAMP DEFAULT NOW(),
-    analyzed_at TIMESTAMP
-);
-
-CREATE TABLE api_keys (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- API keys (per user limits)
+CREATE TABLE api_usage (
+    id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES users(id),
+    month DATE,
+    articles_generated INTEGER DEFAULT 0,
+    total_cost DECIMAL(10,2) DEFAULT 0,
     
-    service VARCHAR(100) NOT NULL,
-    key_hash VARCHAR(255) NOT NULL,
-    key_preview VARCHAR(20),
-    
-    is_active BOOLEAN DEFAULT true,
-    last_used_at TIMESTAMP,
-    usage_count INTEGER DEFAULT 0,
-    
-    created_at TIMESTAMP DEFAULT NOW(),
-    expires_at TIMESTAMP
-);
-
-CREATE TABLE cost_tracking (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pipeline_id UUID REFERENCES pipelines(id),
-    
-    service VARCHAR(100) NOT NULL,
-    operation VARCHAR(255),
-    
-    cost DECIMAL(10,6) NOT NULL,
-    tokens_used INTEGER,
-    
-    timestamp TIMESTAMP DEFAULT NOW()
+    UNIQUE(user_id, month)
 );
 ```
 
-### Implementation Tasks
+## Implementation Steps
 
-#### Phase 1: Database Setup
+### ✅ Already Done
 ```python
-# src/database/models.py
-from sqlalchemy import create_engine, Column, String, DateTime, JSON, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.dialects.postgresql import UUID
-import uuid
-
-Base = declarative_base()
-
-class Article(Base):
-    __tablename__ = 'articles'
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title = Column(String(500), nullable=False)
-    slug = Column(String(500), unique=True, nullable=False)
-    content_markdown = Column(Text, nullable=False)
-    # ... rest of fields
-
-# src/database/connection.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from contextlib import contextmanager
-
-DATABASE_URL = os.getenv('DATABASE_URL')
-engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=40)
-SessionLocal = sessionmaker(bind=engine)
-
-@contextmanager
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# We've already implemented:
+- SQLAlchemy models (src/database/models.py)
+- Repository pattern (src/database/repositories.py)
+- Connection pooling (src/database/connection.py)
+- Migration script (scripts/migrate_to_postgres.py)
+- Retry logic with tenacity
 ```
 
-#### Phase 2: Migration System
+### 📝 Still Needed
+
+#### 1. User Model & Authentication
+```python
+# src/database/models.py - Add User model
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    api_key = Column(String(255), unique=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    articles = relationship("Article", back_populates="user")
+    pipelines = relationship("Pipeline", back_populates="user")
+```
+
+#### 2. Simple Authentication
+```python
+# src/auth/simple_auth.py
+from passlib.context import CryptContext
+import jwt
+
+pwd_context = CryptContext(schemes=["bcrypt"])
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+def create_access_token(user_id: str) -> str:
+    return jwt.encode(
+        {"user_id": user_id, "exp": datetime.utcnow() + timedelta(days=7)},
+        settings.secret_key,
+        algorithm="HS256"
+    )
+```
+
+#### 3. User Scoping
+```python
+# Update repositories to filter by user
+class ArticleRepository:
+    def get_user_articles(self, user_id: str, limit: int = 20):
+        return self.db.query(Article)\
+            .filter(Article.user_id == user_id)\
+            .order_by(Article.created_at.desc())\
+            .limit(limit)\
+            .all()
+    
+    def create_for_user(self, user_id: str, data: dict):
+        data['user_id'] = user_id
+        return self.create(data)
+```
+
+#### 4. Cost Tracking (Simple)
+```python
+# src/services/cost_tracker.py
+class CostTracker:
+    def track_usage(self, user_id: str, cost: float):
+        """Track API usage per user per month"""
+        current_month = datetime.now().replace(day=1)
+        
+        usage = db.query(ApiUsage).filter(
+            ApiUsage.user_id == user_id,
+            ApiUsage.month == current_month
+        ).first()
+        
+        if not usage:
+            usage = ApiUsage(user_id=user_id, month=current_month)
+            db.add(usage)
+        
+        usage.articles_generated += 1
+        usage.total_cost += cost
+        db.commit()
+        
+        # Check limits
+        if usage.total_cost > settings.max_monthly_cost_per_user:
+            raise UsageLimitExceeded()
+```
+
+## Migration Strategy
+
+### Step 1: Add User Support
 ```bash
-# Setup Alembic
-alembic init migrations
-alembic revision --autogenerate -m "Initial schema"
+# Create migration for users table
+alembic revision -m "add_users_table"
+
+# Edit migration file to add users table
+# Run migration
 alembic upgrade head
 ```
 
-#### Phase 3: Repository Pattern
+### Step 2: Update Existing Data
 ```python
-# src/repositories/article_repository.py
-class ArticleRepository:
-    def __init__(self, db_session):
-        self.db = db_session
+# One-time script to assign existing articles to admin user
+def assign_to_admin():
+    admin = User(
+        email="admin@example.com",
+        password_hash=hash_password("changeme"),
+        api_key=generate_api_key()
+    )
+    db.add(admin)
+    db.commit()
     
-    def create(self, article_data: dict) -> Article:
-        article = Article(**article_data)
-        self.db.add(article)
-        self.db.commit()
-        return article
-    
-    def find_by_slug(self, slug: str) -> Optional[Article]:
-        return self.db.query(Article).filter_by(slug=slug).first()
-    
-    def search(self, query: str, limit: int = 10):
-        return self.db.query(Article).filter(
-            Article.search_vector.match(query)
-        ).limit(limit).all()
+    # Update all existing articles
+    db.execute("UPDATE articles SET user_id = :user_id", {"user_id": admin.id})
+    db.commit()
 ```
 
-#### Phase 4: Data Migration
+## Configuration Updates
+
 ```python
-# scripts/migrate_json_to_db.py
-import json
-import glob
-from pathlib import Path
-
-def migrate_articles():
-    """Migrate existing JSON articles to database"""
-    article_files = glob.glob('data/articles/*.json')
-    
-    with get_db() as db:
-        repo = ArticleRepository(db)
-        
-        for file_path in article_files:
-            with open(file_path) as f:
-                data = json.load(f)
-                repo.create(data)
+# .env additions
+SECRET_KEY=your-secret-key-for-jwt
+MAX_MONTHLY_COST_PER_USER=50.00
+MAX_ARTICLES_PER_USER_PER_MONTH=100
+ENABLE_USER_REGISTRATION=true
 ```
 
-### Testing Requirements
+## Testing Requirements
+
 ```python
-# tests/test_database.py
-def test_article_crud():
-    """Test article creation, read, update, delete"""
+# tests/test_user_management.py
+def test_user_registration():
+    """User can register and login"""
     
-def test_pipeline_tracking():
-    """Test pipeline execution tracking"""
+def test_user_owns_articles():
+    """User can only see their own articles"""
     
-def test_concurrent_access():
-    """Test multiple concurrent database operations"""
+def test_cost_limits():
+    """User blocked when exceeding limits"""
     
-def test_transaction_rollback():
-    """Test transaction rollback on error"""
+def test_api_key_per_user():
+    """Each user has unique API key"""
 ```
 
-### Performance Optimization
-```yaml
-Indexes:
-  - articles.slug (unique)
-  - articles.created_at DESC
-  - articles.status
-  - pipelines.status, created_at DESC
-  - Full-text search on content
+## What We're NOT Implementing
 
-Connection Pool:
-  - Min: 5 connections
-  - Max: 20 connections
-  - Overflow: 20 connections
-  
-Query Optimization:
-  - Use eager loading for relationships
-  - Implement query result caching
-  - Batch inserts for bulk operations
-```
-
-### Deployment Considerations
-```yaml
-Digital Ocean Managed Database:
-  - PostgreSQL 15+
-  - 2GB RAM minimum
-  - Automated backups
-  - Read replicas for scaling
-  
-Environment Variables:
-  DATABASE_URL: postgresql://user:pass@host:5432/blogposter
-  DATABASE_POOL_SIZE: 20
-  DATABASE_MAX_OVERFLOW: 40
-  
-Migration Strategy:
-  1. Deploy database schema
-  2. Run data migration script
-  3. Switch application to use database
-  4. Verify all operations
-  5. Archive JSON files
-```
-
-### Monitoring & Maintenance
-```yaml
-Metrics to Track:
-  - Query performance (p50, p95, p99)
-  - Connection pool utilization
-  - Database size growth
-  - Slow query log
-  
-Maintenance Tasks:
-  - Daily backups
-  - Weekly VACUUM ANALYZE
-  - Monthly index optimization
-  - Quarterly data archival
-```
-
----
-
-## Implementation Priority
-1. **Week 1**: Database models and basic CRUD
-2. **Week 2**: Migration system and data import
-3. **Week 3**: Repository pattern and testing
-4. **Week 4**: Performance optimization and monitoring
+❌ Complex RBAC (just user/admin is enough)
+❌ Team/organization management
+❌ Audit logs for everything
+❌ Soft deletes
+❌ Event sourcing
+❌ Database sharding
+❌ Read replicas (DO handles backups)
 
 ## Success Metrics
-- Zero data loss incidents
-- Query response time < 100ms (p95)
-- 99.9% database uptime
-- Successful daily backups
-- Support for 10,000+ articles
+
+✅ Users can register and login
+✅ Data persists across restarts
+✅ Each user sees only their data
+✅ Cost tracking works
+✅ Backups happen automatically (via DO)
+
+## Next Steps
+
+1. ✅ PostgreSQL deployed and working
+2. Add users table via migration
+3. Implement authentication endpoints
+4. Update all queries to filter by user
+5. Add cost tracking
+6. Test with multiple users

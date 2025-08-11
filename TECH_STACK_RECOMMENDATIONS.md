@@ -127,11 +127,11 @@ if settings.sentry_dsn and settings.is_production:
 - **Monitoring**: Prometheus + Grafana (future)
 - **Error Tracking**: Sentry (future)
 - **API Docs**: FastAPI automatic ✅
+- **GraphQL**: Already being used in all WordPress projects
 
 ## 🚫 What NOT to Add (Overkill for Micro-SaaS)
 - ❌ Kubernetes (Docker Compose is sufficient)
 - ❌ Microservices (Monolith is fine)
-- ❌ GraphQL (REST is simpler)
 - ❌ Event Sourcing (Regular CRUD is enough)
 - ❌ Multiple databases (One PostgreSQL is fine)
 - ❌ Complex CI/CD (GitHub Actions is enough)
