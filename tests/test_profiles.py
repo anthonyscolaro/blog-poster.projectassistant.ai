@@ -3,7 +3,7 @@
 Test script for configuration profile system
 """
 
-from config_profiles import create_default_profiles, get_profile_manager
+from src.config.config_profiles import create_default_profiles, get_profile_manager
 
 def test_profile_system():
     """Test the configuration profile CRUD operations"""

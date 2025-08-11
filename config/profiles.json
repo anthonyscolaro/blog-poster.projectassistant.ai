@@ -5,8 +5,8 @@
     "description": "Local WordPress development environment",
     "website_url": "http://localhost:8084",
     "created_at": "2025-08-11 06:43:44.270127",
-    "updated_at": "2025-08-11 06:43:44.270173",
-    "is_active": false,
+    "updated_at": "2025-08-11 12:34:18.604543",
+    "is_active": true,
     "wordpress": {
       "url": "http://localhost:8084",
       "username": "admin",
@@ -26,7 +26,7 @@
       "competitor_monitoring": true,
       "topic_analysis": true,
       "fact_checking": true,
-      "auto_publish": false,
+      "auto_publish": true,
       "require_human_approval": true
     },
     "advanced": {
@@ -86,7 +86,7 @@
     "website_url": "https://www.servicedogus.org",
     "created_at": "2025-08-11 06:43:44.271991",
     "updated_at": "2025-08-10 23:30:54.950027",
-    "is_active": true,
+    "is_active": false,
     "wordpress": {
       "url": "https://wp.servicedogus.org",
       "username": "anthony",

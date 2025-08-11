@@ -73,7 +73,13 @@ curl http://localhost:8088/health
 # 5. Test WordPress connection
 python examples/test_direct_publish.py
 
-# 6. Run complete workflow
+# 6. Run tests to verify installation
+./run_tests.py
+
+# 7. Access the dashboard
+open http://localhost:8088
+
+# 8. Run complete workflow
 python examples/complete_workflow.py
 ```
 
@@ -414,25 +420,69 @@ export $(cat .env.local | xargs)
 uvicorn app:app --reload --port 8088
 ```
 
-### Testing
+## 🧪 Testing
 
-**Note**: Test suite not yet implemented. Planned testing structure:
+The project includes a comprehensive test suite with 50+ test cases covering all major components.
+
+### Running Tests
 
 ```bash
-# Future test commands (not yet available):
-# pytest tests/
-# python -m agents.topic_analysis --test
-# python -m tools.prompt_validator
+# Run all tests with coverage report
+./run_tests.py
+
+# Run tests with pytest directly
+pytest tests/ -v
+
+# Run with coverage metrics
+pytest --cov=. --cov-report=html
+
+# Run specific test file
+pytest tests/test_api_endpoints.py -v
+
+# Run tests in Docker
+make test
+
+# Run only unit tests (fast)
+pytest -m "not integration" -v
+
+# Run integration tests
+pytest -m integration -v
 ```
 
-### Creating Missing Components
+### Test Coverage
 
-To complete the implementation, the following need to be created:
-1. Agent implementations in `/agents/` directory
-2. LLM integration in article generation
-3. Jina AI scraping integration
-4. Vector search implementation
-5. Test suite in `/tests/` directory
+The test suite covers:
+- **API Endpoints** - All REST endpoints with success/error cases
+- **Vector Search** - Qdrant operations, embeddings, semantic search
+- **Docker Services** - Container health checks and connectivity
+- **Agents** - Article generation, legal fact checking, WordPress publishing
+- **Configuration** - Profile CRUD operations and validation
+- **Pipeline** - End-to-end workflow testing
+
+### Test Structure
+
+```
+tests/
+├── __init__.py
+├── test_api_endpoints.py      # API endpoint tests
+├── test_vector_search.py      # Vector database tests
+├── test_docker_services.py    # Container health checks
+├── test_article_generation.py # Article agent tests
+├── test_legal_fact_checker.py # Legal verification tests
+└── test_wordpress_publisher.py # WordPress integration tests
+
+conftest.py                     # Shared fixtures and configuration
+run_tests.py                   # Test runner with coverage reporting
+```
+
+### Continuous Integration
+
+Tests automatically run on:
+- Pull request creation
+- Commits to main branch
+- Manual workflow dispatch
+
+See `.github/workflows/tests.yml` for CI configuration.
 
 ## Production Deployment
 

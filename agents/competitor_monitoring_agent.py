@@ -11,7 +11,7 @@ from pathlib import Path
 import logging
 
 from pydantic import BaseModel, Field, HttpUrl
-from scrapers import WebScraper, CompetitorMonitor, CompetitorContent, ScrapedContent
+from src.scrapers.scrapers import WebScraper, CompetitorMonitor, CompetitorContent, ScrapedContent
 
 logger = logging.getLogger(__name__)
 

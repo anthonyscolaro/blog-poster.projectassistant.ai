@@ -24,7 +24,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -312,7 +312,7 @@ except Exception:
 
 # Include configuration profile management API
 try:
-    from config_api import router as config_router
+    from src.config.config_api import router as config_router
     app.include_router(config_router)
 except Exception:
     # Router is optional; the app can run without it if dependencies are missing
@@ -429,7 +429,7 @@ async def lint_endpoint(req: LintRequest):
 # WordPress Publishing Endpoints
 # ------------------------------
 
-from wordpress_publisher import WordPressPublisher
+from src.services.wordpress_publisher import WordPressPublisher
 
 @app.post("/publish/wp")
 async def publish_to_wordpress(
@@ -830,7 +830,7 @@ async def identify_content_gaps(
 # ------------------------------
 # Orchestration Pipeline Endpoints
 # ------------------------------
-from orchestration_manager import (
+from src.services.orchestration_manager import (
     OrchestrationManager, 
     PipelineConfig, 
     PipelineResult,
@@ -955,7 +955,7 @@ async def get_pipeline_costs():
 # ------------------------------
 # Vector Search Endpoints
 # ------------------------------
-from vector_search import VectorSearchManager, SearchResult
+from src.services.vector_search import VectorSearchManager, SearchResult
 
 # Global vector search manager
 vector_manager = None
@@ -1178,8 +1178,8 @@ async def pipeline_dashboard(request: Request):
     try:
         orchestration_status = get_orchestration_manager()
         
-        # Get pipeline history and current status
-        pipeline_history = await orchestration_status.get_pipeline_history() if orchestration_status else []
+        # Get pipeline history and current status - use the dashboard method that returns dicts
+        pipeline_history = await orchestration_status.get_pipeline_history_dashboard() if orchestration_status else []
         active_pipelines = await orchestration_status.get_active_pipelines() if orchestration_status else []
         
         context = {
@@ -1261,7 +1261,7 @@ async def health_dashboard(request: Request):
         
         # Check WordPress connection
         try:
-            from wordpress_publisher import WordPressPublisher
+            from src.services.wordpress_publisher import WordPressPublisher
             wp_publisher = WordPressPublisher()
             # This would need a health check method
             health_data["services"]["wordpress"] = "unknown"
@@ -1310,6 +1310,35 @@ async def config_dashboard(request: Request):
         logger.error(f"Config dashboard error: {e}")
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
 
+@app.get("/instructions", response_class=HTMLResponse)
+async def instructions_page(request: Request):
+    """Instructions and user guide page"""
+    try:
+        context = {
+            "request": request,
+            "title": "Instructions & User Guide",
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("instructions.html", context)
+    except Exception as e:
+        logger.error(f"Instructions page error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/features", response_class=HTMLResponse)
+async def features_page(request: Request):
+    """Features page showing all system capabilities"""
+    try:
+        context = {
+            "request": request,
+            "title": "Features",
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        return templates.TemplateResponse("features.html", context)
+    except Exception as e:
+        logger.error(f"Features page error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
 @app.get("/config/legacy", response_class=HTMLResponse)
 async def legacy_config_dashboard(request: Request):
     """Legacy configuration management page"""
@@ -1347,6 +1376,68 @@ async def legacy_config_dashboard(request: Request):
     except Exception as e:
         logger.error(f"Config dashboard error: {e}")
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+# ------------------------------
+# WebSocket for Real-time Logs
+# ------------------------------
+from src.services.pipeline_logger import pipeline_logger
+
+@app.websocket("/ws/logs/{pipeline_id}")
+async def websocket_logs(websocket: WebSocket, pipeline_id: str):
+    """WebSocket endpoint for streaming pipeline logs"""
+    await websocket.accept()
+    logger.info(f"WebSocket connected for pipeline {pipeline_id}")
+    
+    # Add this connection to the pipeline logger
+    pipeline_logger.add_connection(pipeline_id, websocket)
+    
+    try:
+        # Send initial logs if any exist
+        existing_logs = pipeline_logger.get_logs(pipeline_id, limit=100)
+        if existing_logs:
+            await websocket.send_json({
+                "type": "initial",
+                "logs": existing_logs
+            })
+        
+        # Keep connection alive and handle incoming messages
+        while True:
+            try:
+                # Wait for any message from client (heartbeat, etc.)
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}")
+                break
+                
+    except Exception as e:
+        logger.error(f"WebSocket handler error: {e}")
+    finally:
+        # Remove connection when done
+        pipeline_logger.remove_connection(pipeline_id, websocket)
+        logger.info(f"WebSocket disconnected for pipeline {pipeline_id}")
+
+@app.get("/logs/{pipeline_id}")
+async def get_pipeline_logs(pipeline_id: str, limit: int = 100):
+    """Get recent logs for a pipeline"""
+    logs = pipeline_logger.get_logs(pipeline_id, limit=limit)
+    return {
+        "pipeline_id": pipeline_id,
+        "logs": logs,
+        "count": len(logs)
+    }
+
+@app.delete("/logs/{pipeline_id}")
+async def clear_pipeline_logs(pipeline_id: str):
+    """Clear logs for a pipeline"""
+    pipeline_logger.clear_logs(pipeline_id)
+    return {
+        "success": True,
+        "message": f"Logs cleared for pipeline {pipeline_id}"
+    }
 
 # ------------------------------
 # Cleanup on shutdown

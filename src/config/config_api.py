@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from config_profiles import (
+from .config_profiles import (
     ConfigProfile, 
     ConfigProfileManager,
     WordPressConfig,
@@ -342,7 +342,7 @@ async def test_wordpress_connection(profile_id: str):
             raise HTTPException(status_code=404, detail="Profile not found")
         
         # Import WordPress publisher to test connection
-        from wordpress_publisher import WordPressPublisher
+        from ..services.wordpress_publisher import WordPressPublisher
         
         # Create publisher with profile settings
         publisher = WordPressPublisher(

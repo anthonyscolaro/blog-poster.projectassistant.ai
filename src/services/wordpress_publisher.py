@@ -71,23 +71,31 @@ class WordPressPublisher:
         categories: Optional[list] = None,
         tags: Optional[list] = None,
         meta: Optional[Dict[str, Any]] = None,
-        slug: Optional[str] = None
+        slug: Optional[str] = None,
+        is_markdown: bool = True
     ) -> Dict[str, Any]:
         """
         Create a new WordPress post
         
         Args:
             title: Post title
-            content: Post content (HTML)
+            content: Post content (Markdown or HTML)
             status: Post status (draft or publish)
             categories: List of category IDs
             tags: List of tag IDs
             meta: Meta fields (SEO, etc.)
             slug: URL slug
+            is_markdown: Whether content is in Markdown format (default: True)
             
         Returns:
             Dict with post details including ID and edit URL
         """
+        # Convert markdown to WordPress blocks if needed
+        if is_markdown:
+            from ..utils.markdown_to_wp_blocks import markdown_to_wp_blocks
+            _, content = markdown_to_wp_blocks(content, parse_frontmatter=False)
+            logger.info("Converted markdown to WordPress blocks")
+        
         # Prepare post data
         post_data = {
             "title": title,

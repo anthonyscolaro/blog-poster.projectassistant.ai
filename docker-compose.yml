@@ -24,8 +24,8 @@ services:
       VECTOR_BACKEND: qdrant
       QDRANT_URL: http://qdrant:6333
       PYTHONUNBUFFERED: "1"
-      # Local dev: point to localhost WordPress (port +4)
-      WORDPRESS_URL: ${WORDPRESS_LOCAL_URL:-http://localhost:${WORDPRESS_HTTP_PORT:-8084}}
+      # Local dev: point to host machine WordPress (port +4)
+      WORDPRESS_URL: ${WORDPRESS_LOCAL_URL:-http://host.docker.internal:${WORDPRESS_HTTP_PORT:-8084}}
     volumes:
       - ./:/app
     ports:
