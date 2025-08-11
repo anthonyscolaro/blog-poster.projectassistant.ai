@@ -1378,6 +1378,68 @@ async def legacy_config_dashboard(request: Request):
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
 
 # ------------------------------
+# WebSocket for Real-time Logs
+# ------------------------------
+from src.services.pipeline_logger import pipeline_logger
+
+@app.websocket("/ws/logs/{pipeline_id}")
+async def websocket_logs(websocket: WebSocket, pipeline_id: str):
+    """WebSocket endpoint for streaming pipeline logs"""
+    await websocket.accept()
+    logger.info(f"WebSocket connected for pipeline {pipeline_id}")
+    
+    # Add this connection to the pipeline logger
+    pipeline_logger.add_connection(pipeline_id, websocket)
+    
+    try:
+        # Send initial logs if any exist
+        existing_logs = pipeline_logger.get_logs(pipeline_id, limit=100)
+        if existing_logs:
+            await websocket.send_json({
+                "type": "initial",
+                "logs": existing_logs
+            })
+        
+        # Keep connection alive and handle incoming messages
+        while True:
+            try:
+                # Wait for any message from client (heartbeat, etc.)
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}")
+                break
+                
+    except Exception as e:
+        logger.error(f"WebSocket handler error: {e}")
+    finally:
+        # Remove connection when done
+        pipeline_logger.remove_connection(pipeline_id, websocket)
+        logger.info(f"WebSocket disconnected for pipeline {pipeline_id}")
+
+@app.get("/logs/{pipeline_id}")
+async def get_pipeline_logs(pipeline_id: str, limit: int = 100):
+    """Get recent logs for a pipeline"""
+    logs = pipeline_logger.get_logs(pipeline_id, limit=limit)
+    return {
+        "pipeline_id": pipeline_id,
+        "logs": logs,
+        "count": len(logs)
+    }
+
+@app.delete("/logs/{pipeline_id}")
+async def clear_pipeline_logs(pipeline_id: str):
+    """Clear logs for a pipeline"""
+    pipeline_logger.clear_logs(pipeline_id)
+    return {
+        "success": True,
+        "message": f"Logs cleared for pipeline {pipeline_id}"
+    }
+
+# ------------------------------
 # Cleanup on shutdown
 # ------------------------------
 @app.on_event("shutdown")
