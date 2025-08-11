@@ -579,7 +579,7 @@ class OrchestrationManager:
         ]
         return steps
         
-    async def get_pipeline_history(self) -> List[Dict[str, Any]]:
+    async def get_pipeline_history_dashboard(self) -> List[Dict[str, Any]]:
         """Get pipeline execution history for dashboard"""
         history = []
         

@@ -1179,7 +1179,7 @@ async def pipeline_dashboard(request: Request):
         orchestration_status = get_orchestration_manager()
         
         # Get pipeline history and current status
-        pipeline_history = await orchestration_status.get_pipeline_history() if orchestration_status else []
+        pipeline_history = orchestration_status.get_pipeline_history(20) if orchestration_status else []
         active_pipelines = await orchestration_status.get_active_pipelines() if orchestration_status else []
         
         context = {
@@ -1308,6 +1308,21 @@ async def config_dashboard(request: Request):
         return templates.TemplateResponse("config-profiles.html", context)
     except Exception as e:
         logger.error(f"Config dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/instructions", response_class=HTMLResponse)
+async def instructions_page(request: Request):
+    """Instructions and user guide page"""
+    try:
+        context = {
+            "request": request,
+            "title": "Instructions & User Guide",
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("instructions.html", context)
+    except Exception as e:
+        logger.error(f"Instructions page error: {e}")
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
 
 @app.get("/config/legacy", response_class=HTMLResponse)

@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-book"></i> Instructions & User Guide</h2>
+            <button class="btn btn-outline-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Print Guide
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Start Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-rocket"></i> Quick Start Guide</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                <span class="fs-3">1</span>
+                            </div>
+                            <h6 class="mt-2">Configure Settings</h6>
+                            <p class="small text-muted">Set up your WordPress connection and API keys</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <div class="rounded-circle bg-success text-white d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                <span class="fs-3">2</span>
+                            </div>
+                            <h6 class="mt-2">Generate Content</h6>
+                            <p class="small text-muted">Use AI to create SEO-optimized articles</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <div class="rounded-circle bg-info text-white d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                <span class="fs-3">3</span>
+                            </div>
+                            <h6 class="mt-2">Publish to WordPress</h6>
+                            <p class="small text-muted">Review and publish your content with one click</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Guide -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-compass"></i> Dashboard Navigation</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-3">
+                        <strong><i class="bi bi-speedometer2 text-primary"></i> Dashboard</strong>
+                        <p class="ms-4 mb-1 text-muted">Overview of system status, metrics, and quick actions</p>
+                    </li>
+                    <li class="mb-3">
+                        <strong><i class="bi bi-diagram-3 text-success"></i> Pipeline Monitor</strong>
+                        <p class="ms-4 mb-1 text-muted">Track content generation pipeline progress and history</p>
+                    </li>
+                    <li class="mb-3">
+                        <strong><i class="bi bi-file-text text-info"></i> Article Management</strong>
+                        <p class="ms-4 mb-1 text-muted">View, edit, and manage all generated articles</p>
+                    </li>
+                    <li class="mb-3">
+                        <strong><i class="bi bi-heart-pulse text-warning"></i> System Health</strong>
+                        <p class="ms-4 mb-1 text-muted">Monitor service status and API connections</p>
+                    </li>
+                    <li class="mb-3">
+                        <strong><i class="bi bi-gear text-secondary"></i> Configuration</strong>
+                        <p class="ms-4 mb-1 text-muted">Manage WordPress profiles and API settings</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary text-start" onclick="generateArticle()">
+                        <i class="bi bi-file-plus"></i> <strong>Generate Article</strong>
+                        <small class="d-block text-muted">Create new SEO-optimized content</small>
+                    </button>
+                    <button class="btn btn-outline-success text-start" onclick="runPipeline()">
+                        <i class="bi bi-play-circle"></i> <strong>Run Full Pipeline</strong>
+                        <small class="d-block text-muted">Execute complete content generation workflow</small>
+                    </button>
+                    <button class="btn btn-outline-info text-start" onclick="testWordPress()">
+                        <i class="bi bi-wordpress"></i> <strong>Test WordPress</strong>
+                        <small class="d-block text-muted">Verify WordPress connection</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Content Generation Guide -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-text"></i> How to Generate & Publish Content</h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="contentGuide">
+                    <!-- Step 1: Configuration -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#step1">
+                                <strong>Step 1: Initial Configuration</strong>
+                            </button>
+                        </h2>
+                        <div id="step1" class="accordion-collapse collapse show" data-bs-parent="#contentGuide">
+                            <div class="accordion-body">
+                                <ol>
+                                    <li class="mb-2">
+                                        <strong>Navigate to Configuration</strong>
+                                        <p>Click on <i class="bi bi-gear"></i> Configuration in the sidebar</p>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Set up WordPress Connection</strong>
+                                        <ul>
+                                            <li>Enter your WordPress URL (e.g., https://yourdomain.com)</li>
+                                            <li>Add your WordPress username</li>
+                                            <li>Generate and add an Application Password from WordPress</li>
+                                            <li>Click "Test WordPress" to verify connection</li>
+                                        </ul>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Configure API Keys</strong>
+                                        <ul>
+                                            <li>Add your Anthropic API key for content generation</li>
+                                            <li>Add Jina AI API key for content extraction</li>
+                                            <li>Optional: Add OpenAI API key as fallback</li>
+                                        </ul>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Save Configuration</strong>
+                                        <p>Click "Save Configuration" to store your settings</p>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2: Generate Content -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step2">
+                                <strong>Step 2: Generate Content</strong>
+                            </button>
+                        </h2>
+                        <div id="step2" class="accordion-collapse collapse" data-bs-parent="#contentGuide">
+                            <div class="accordion-body">
+                                <h6>Method 1: Quick Generation</h6>
+                                <ol>
+                                    <li>Click "Generate Article" button from any page</li>
+                                    <li>Enter your primary keyword (e.g., "service dog training")</li>
+                                    <li>Wait for AI to generate content (usually 30-60 seconds)</li>
+                                    <li>Article will be saved automatically</li>
+                                </ol>
+                                
+                                <h6 class="mt-4">Method 2: Full Pipeline</h6>
+                                <ol>
+                                    <li>Click "Run Full Pipeline" for comprehensive workflow</li>
+                                    <li>System will:
+                                        <ul>
+                                            <li>Monitor competitor content</li>
+                                            <li>Analyze trending topics</li>
+                                            <li>Generate optimized article</li>
+                                            <li>Perform fact checking</li>
+                                            <li>Prepare for publishing</li>
+                                        </ul>
+                                    </li>
+                                    <li>Monitor progress in Pipeline Monitor</li>
+                                </ol>
+                                
+                                <div class="alert alert-info mt-3">
+                                    <i class="bi bi-info-circle"></i> <strong>Tip:</strong> Articles are automatically optimized for SEO with proper meta tags, keyword density, and content structure.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 3: Review & Edit -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step3">
+                                <strong>Step 3: Review & Edit Articles</strong>
+                            </button>
+                        </h2>
+                        <div id="step3" class="accordion-collapse collapse" data-bs-parent="#contentGuide">
+                            <div class="accordion-body">
+                                <ol>
+                                    <li class="mb-2">
+                                        <strong>Navigate to Article Management</strong>
+                                        <p>Click <i class="bi bi-file-text"></i> Article Management in sidebar</p>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Review Generated Articles</strong>
+                                        <ul>
+                                            <li>View article title and primary keyword</li>
+                                            <li>Check word count (aim for 1500+ words)</li>
+                                            <li>Review SEO score (target 80+)</li>
+                                            <li>Note generation cost</li>
+                                        </ul>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Edit Article (Optional)</strong>
+                                        <ul>
+                                            <li>Click <i class="bi bi-pencil"></i> Edit button</li>
+                                            <li>Modify title, keyword, or content</li>
+                                            <li>Update meta description</li>
+                                            <li>Save changes</li>
+                                        </ul>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Preview Article</strong>
+                                        <ul>
+                                            <li>Click <i class="bi bi-eye"></i> View button</li>
+                                            <li>Review formatted content</li>
+                                            <li>Check internal/external links</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 4: Publish -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step4">
+                                <strong>Step 4: Publish to WordPress</strong>
+                            </button>
+                        </h2>
+                        <div id="step4" class="accordion-collapse collapse" data-bs-parent="#contentGuide">
+                            <div class="accordion-body">
+                                <ol>
+                                    <li class="mb-2">
+                                        <strong>Select Article to Publish</strong>
+                                        <p>From Article Management, find the article you want to publish</p>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Click Publish Button</strong>
+                                        <ul>
+                                            <li>Click <i class="bi bi-upload"></i> Publish to WordPress</li>
+                                            <li>Confirm publication in the modal</li>
+                                        </ul>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>Publication Process</strong>
+                                        <ul>
+                                            <li>Article is sent to WordPress via API</li>
+                                            <li>Content is formatted with proper HTML</li>
+                                            <li>SEO meta tags are applied</li>
+                                            <li>Article is published or saved as draft</li>
+                                        </ul>
+                                    </li>
+                                    <li class="mb-2">
+                                        <strong>After Publishing</strong>
+                                        <ul>
+                                            <li>Receive WordPress post ID confirmation</li>
+                                            <li>Click <i class="bi bi-wordpress"></i> to view on WordPress</li>
+                                            <li>Article status updates to "Published"</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                                
+                                <div class="alert alert-success mt-3">
+                                    <i class="bi bi-check-circle"></i> <strong>Success!</strong> Your article is now live on WordPress with SEO optimization.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Best Practices -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Best Practices</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <strong>Keyword Research</strong>
+                        <p class="ms-4 text-muted">Choose keywords with good search volume and relevance</p>
+                    </li>
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <strong>Content Length</strong>
+                        <p class="ms-4 text-muted">Aim for 1500+ words for better SEO performance</p>
+                    </li>
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <strong>Regular Publishing</strong>
+                        <p class="ms-4 text-muted">Maintain consistent publishing schedule</p>
+                    </li>
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <strong>Review Before Publishing</strong>
+                        <p class="ms-4 text-muted">Always review AI-generated content for accuracy</p>
+                    </li>
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <strong>Monitor Performance</strong>
+                        <p class="ms-4 text-muted">Track article performance and costs</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Common Issues & Solutions</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>WordPress Connection Failed</strong>
+                    <ul class="text-muted small">
+                        <li>Verify WordPress URL is correct</li>
+                        <li>Check Application Password is valid</li>
+                        <li>Ensure WordPress REST API is enabled</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Article Generation Failed</strong>
+                    <ul class="text-muted small">
+                        <li>Check API keys are configured</li>
+                        <li>Verify API credits available</li>
+                        <li>Try different keyword</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Low SEO Score</strong>
+                    <ul class="text-muted small">
+                        <li>Add more relevant keywords</li>
+                        <li>Increase content length</li>
+                        <li>Improve meta description</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>High Generation Costs</strong>
+                    <ul class="text-muted small">
+                        <li>Use more specific keywords</li>
+                        <li>Set content length limits</li>
+                        <li>Monitor monthly budget</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Keyboard Shortcuts -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-keyboard"></i> Keyboard Shortcuts</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <ul class="list-unstyled">
+                            <li><kbd>Alt</kbd> + <kbd>G</kbd> - Generate Article</li>
+                            <li><kbd>Alt</kbd> + <kbd>P</kbd> - Run Pipeline</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <ul class="list-unstyled">
+                            <li><kbd>Alt</kbd> + <kbd>A</kbd> - Article Management</li>
+                            <li><kbd>Alt</kbd> + <kbd>D</kbd> - Dashboard</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <ul class="list-unstyled">
+                            <li><kbd>Alt</kbd> + <kbd>H</kbd> - System Health</li>
+                            <li><kbd>Alt</kbd> + <kbd>C</kbd> - Configuration</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Support & Resources -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-question-circle"></i> Need Help?</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <i class="bi bi-book text-primary" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Documentation</h6>
+                        <p class="small text-muted">Check the README for technical details</p>
+                        <a href="/docs" class="btn btn-sm btn-outline-primary">View API Docs</a>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="bi bi-chat-dots text-success" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Support</h6>
+                        <p class="small text-muted">Contact admin for assistance</p>
+                        <button class="btn btn-sm btn-outline-success" onclick="showInfo('Contact: admin@servicedogus.org')">
+                            Get Support
+                        </button>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="bi bi-bug text-danger" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2">Report Issue</h6>
+                        <p class="small text-muted">Found a bug? Let us know</p>
+                        <button class="btn btn-sm btn-outline-danger" onclick="showWarning('Please email details to support')">
+                            Report Bug
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.altKey) {
+        switch(e.key.toLowerCase()) {
+            case 'g':
+                e.preventDefault();
+                generateArticle();
+                break;
+            case 'p':
+                e.preventDefault();
+                runPipeline();
+                break;
+            case 'a':
+                e.preventDefault();
+                window.location.href = '/articles';
+                break;
+            case 'd':
+                e.preventDefault();
+                window.location.href = '/';
+                break;
+            case 'h':
+                e.preventDefault();
+                window.location.href = '/health-dashboard';
+                break;
+            case 'c':
+                e.preventDefault();
+                window.location.href = '/config';
+                break;
+        }
+    }
+});
+
+// Smooth scroll for accordion
+document.querySelectorAll('.accordion-button').forEach(button => {
+    button.addEventListener('click', function() {
+        setTimeout(() => {
+            this.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 350);
+    });
+});
+</script>
+{% endblock %}
