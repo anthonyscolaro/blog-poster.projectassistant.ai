@@ -405,7 +405,7 @@
 </div>
 
 <!-- Modal for Pipeline Configuration -->
-<div class="modal fade" id="pipelineConfigModal" tabindex="-1">
+<div class="modal fade" id="pipelineConfigModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
@@ -617,8 +617,11 @@ function runPipeline() {
     // Reset form
     document.getElementById('pipelineConfigForm').reset();
     
-    // Show the configuration modal
-    const modal = new bootstrap.Modal(document.getElementById('pipelineConfigModal'));
+    // Show the configuration modal with static backdrop
+    const modal = new bootstrap.Modal(document.getElementById('pipelineConfigModal'), {
+        backdrop: 'static',
+        keyboard: false
+    });
     modal.show();
 }
 

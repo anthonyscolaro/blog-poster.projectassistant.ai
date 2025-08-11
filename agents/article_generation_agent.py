@@ -204,12 +204,24 @@ class ArticleGenerationAgent:
             if cost_tracking.cost > self.max_cost_per_article:
                 logger.warning(f"Article generation exceeded cost limit: ${cost_tracking.cost:.2f}")
             
-            # Step 6: Create final article
+            # Step 6: Validate word count and retry if needed
+            word_count = len(content.split())
+            if word_count < seo_requirements.min_words:
+                logger.warning(f"Article is too short ({word_count} words, minimum {seo_requirements.min_words}). Attempting to expand...")
+                try:
+                    content = await self._expand_content(content, seo_requirements, word_count)
+                    content_html = self._convert_to_wordpress_html(content)
+                    logger.info(f"Expanded article to {len(content.split())} words")
+                except Exception as e:
+                    logger.error(f"Failed to expand content: {e}")
+                    # Continue with original content but log the issue
+            
+            # Step 7: Create final article
             article = self._assemble_article(
                 content, content_html, metadata, outline, seo_requirements, cost_tracking
             )
             
-            # Step 7: Cache the article
+            # Step 8: Cache the article
             self._cache_article(article)
             
             return article
@@ -233,20 +245,22 @@ Create a detailed outline for an article about: {topic}
 SEO Requirements:
 - Primary keyword: {seo_requirements.primary_keyword}
 - Secondary keywords: {', '.join(seo_requirements.secondary_keywords)}
-- Target length: {seo_requirements.min_words}-{seo_requirements.max_words} words
+- Target length: {seo_requirements.min_words}-{seo_requirements.max_words} words (MUST meet minimum {seo_requirements.min_words} words)
 - Internal links needed: {seo_requirements.internal_links_count}
 
 {f"Competitor Insights: {json.dumps(competitor_insights, indent=2)}" if competitor_insights else ""}
 
-Provide a comprehensive outline with:
+Provide a comprehensive outline that will result in a {seo_requirements.min_words}+ word article:
 1. Compelling title (under 60 characters)
 2. Meta title (SEO-optimized, under 60 characters)
 3. Meta description (compelling, under 155 characters)
 4. Introduction paragraph (hook the reader)
-5. Main sections (4-6 sections with subpoints)
+5. Main sections (6-8 detailed sections with multiple subpoints each to reach {seo_requirements.min_words} words)
 6. Conclusion points
 7. Internal link opportunities (topics to link to)
 8. Citations needed (laws, regulations, studies)
+
+CRITICAL: Design the outline to support {seo_requirements.min_words}-{seo_requirements.max_words} words. Include enough sections and subpoints.
 
 Format as JSON with this structure:
 {{
@@ -319,7 +333,7 @@ Conclusion Points:
 Requirements:
 - Brand voice: {brand_voice}
 - Target audience: {target_audience}
-- Length: {seo_requirements.min_words}-{seo_requirements.max_words} words
+- Length: MUST be {seo_requirements.min_words}-{seo_requirements.max_words} words (CRITICAL: minimum {seo_requirements.min_words} words required)
 - Primary keyword "{seo_requirements.primary_keyword}" should appear naturally 3-5 times
 - Include these secondary keywords naturally: {', '.join(seo_requirements.secondary_keywords)}
 - Write at a {seo_requirements.target_reading_level}th grade reading level
@@ -643,6 +657,76 @@ Format as JSON:
             logger.info("Cleaned AI artifacts from generated content")
         
         return content.strip()
+    
+    async def _expand_content(self, content: str, seo_requirements: SEORequirements, current_word_count: int) -> str:
+        """
+        Expand content to meet minimum word count requirements
+        
+        Args:
+            content: Current article content
+            seo_requirements: SEO requirements including min_words
+            current_word_count: Current word count
+        
+        Returns:
+            Expanded content meeting word count requirements
+        """
+        words_needed = seo_requirements.min_words - current_word_count
+        
+        expansion_prompt = f"""The following article is too short ({current_word_count} words) and needs to be expanded to at least {seo_requirements.min_words} words (add approximately {words_needed} words).
+
+CURRENT ARTICLE:
+{content}
+
+Please expand this article by:
+1. Adding more detailed explanations to existing sections
+2. Including additional relevant examples and case studies
+3. Adding practical tips and actionable advice
+4. Expanding on legal requirements and compliance details
+5. Including more comprehensive background information
+
+Requirements:
+- Maintain the same tone and style
+- Keep all existing content and structure
+- Add approximately {words_needed} more words
+- Focus on value-added content, not filler
+- Maintain SEO keyword density for "{seo_requirements.primary_keyword}"
+- Use the same markdown formatting
+
+Return the complete expanded article:"""
+
+        try:
+            if self.anthropic_client:
+                response = await self.anthropic_client.messages.create(
+                    model=self.model_name,
+                    max_tokens=4000,
+                    temperature=0.7,
+                    messages=[{"role": "user", "content": expansion_prompt}]
+                )
+                expanded_content = response.content[0].text
+            else:
+                response = await self.openai_client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": expansion_prompt}],
+                    max_tokens=4000,
+                    temperature=0.7
+                )
+                expanded_content = response.choices[0].message.content
+            
+            # Clean the expanded content
+            expanded_content = self._clean_ai_artifacts(expanded_content)
+            
+            # Verify the expansion worked
+            new_word_count = len(expanded_content.split())
+            if new_word_count >= seo_requirements.min_words:
+                logger.info(f"Successfully expanded article from {current_word_count} to {new_word_count} words")
+                return expanded_content
+            else:
+                logger.warning(f"Expansion insufficient: {new_word_count} words, still below {seo_requirements.min_words}")
+                return content  # Return original if expansion didn't work
+                
+        except Exception as e:
+            logger.error(f"Failed to expand content: {e}")
+            return content  # Return original content on failure
     
     def _convert_to_wordpress_html(self, markdown_content: str) -> str:
         """
