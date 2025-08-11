@@ -529,7 +529,7 @@ class OrchestrationManager:
             "last_run": self.pipeline_history[-1].started_at.isoformat() if self.pipeline_history else None,
             "current_status": self.current_status.value if self.current_status else "idle",
             "recent_activities": self._get_recent_activities(),
-            "articles_generated": len([r for r in self.pipeline_history if r.generated_article]),
+            "articles_generated": len([r for r in self.pipeline_history if r.article]),
             "articles_published": len([r for r in self.pipeline_history if r.wordpress_result]),
             "facts_checked": len([r for r in self.pipeline_history if r.fact_check_report]),
             "topics_analyzed": len(self.pipeline_history),
@@ -543,7 +543,7 @@ class OrchestrationManager:
         for result in self.pipeline_history[-5:]:  # Last 5 activities
             activities.append({
                 "action": f"Pipeline {result.status.value}",
-                "details": f"Topic: {result.topic or 'Auto-generated'}",
+                "details": f"Topic: {result.topic_recommendation.title if result.topic_recommendation else 'Auto-generated'}",
                 "timestamp": result.started_at.strftime("%H:%M:%S"),
                 "status": result.status.value
             })
