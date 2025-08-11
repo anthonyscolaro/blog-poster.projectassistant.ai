@@ -40,15 +40,93 @@
                                 <div class="pipeline-steps">
                                     {% for step in pipeline.steps %}
                                     <div class="pipeline-step step-{{ step.status }}">
-                                        <strong>{{ step.name }}</strong>
-                                        <div class="small">
-                                            Status: {{ step.status }} 
-                                            {% if step.duration %}| Duration: {{ step.duration }}s{% endif %}
-                                            {% if step.cost %}| Cost: ${{ "%.4f"|format(step.cost) }}{% endif %}
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <strong>{{ step.name }}</strong>
+                                                <div class="small">
+                                                    Status: {{ step.status }} 
+                                                    {% if step.duration %}| Duration: {{ step.duration }}s{% endif %}
+                                                    {% if step.cost %}| Cost: ${{ "%.4f"|format(step.cost) }}{% endif %}
+                                                </div>
+                                                
+                                                <!-- Step-specific details -->
+                                                {% if step.name == 'Competitor Monitoring' and step.details %}
+                                                    <div class="small mt-1 text-info">
+                                                        {% if step.details.competitors_analyzed %}
+                                                            <i class="bi bi-search"></i> Analyzed: {{ step.details.competitors_analyzed|join(', ') }}
+                                                        {% endif %}
+                                                        {% if step.details.content_pieces_found %}
+                                                            | <i class="bi bi-file-text"></i> Found {{ step.details.content_pieces_found }} pieces
+                                                        {% endif %}
+                                                    </div>
+                                                {% elif step.name == 'Topic Analysis' and step.details %}
+                                                    <div class="small mt-1 text-info">
+                                                        {% if step.details.topic_selected %}
+                                                            <i class="bi bi-lightbulb"></i> Topic: {{ step.details.topic_selected }}
+                                                        {% endif %}
+                                                        {% if step.details.seo_score %}
+                                                            | <i class="bi bi-graph-up"></i> SEO Score: {{ step.details.seo_score }}/100
+                                                        {% endif %}
+                                                    </div>
+                                                {% elif step.name == 'Article Generation' and step.details %}
+                                                    <div class="small mt-1 text-info">
+                                                        {% if step.details.word_count %}
+                                                            <i class="bi bi-file-text"></i> {{ step.details.word_count }} words
+                                                        {% endif %}
+                                                        {% if step.details.article_id %}
+                                                            | <a href="/articles/{{ step.details.article_id }}" class="text-info text-decoration-none">
+                                                                <i class="bi bi-eye"></i> Preview Article
+                                                            </a>
+                                                        {% endif %}
+                                                    </div>
+                                                {% elif step.name == 'Legal Fact Checking' and step.details %}
+                                                    <div class="small mt-1 text-info">
+                                                        {% if step.details.claims_checked %}
+                                                            <i class="bi bi-shield-check"></i> {{ step.details.claims_checked }} claims checked
+                                                        {% endif %}
+                                                        {% if step.details.accuracy_score %}
+                                                            | <i class="bi bi-patch-check"></i> Accuracy: {{ step.details.accuracy_score }}%
+                                                        {% endif %}
+                                                        {% if step.details.issues_found %}
+                                                            | <i class="bi bi-exclamation-triangle text-warning"></i> {{ step.details.issues_found }} issues
+                                                        {% endif %}
+                                                    </div>
+                                                {% elif step.name == 'WordPress Publishing' and step.details %}
+                                                    <div class="small mt-1 text-info">
+                                                        {% if step.details.post_id %}
+                                                            <i class="bi bi-wordpress"></i> Post ID: {{ step.details.post_id }}
+                                                        {% endif %}
+                                                        {% if step.details.edit_link %}
+                                                            | <a href="{{ step.details.edit_link }}" target="_blank" class="text-info text-decoration-none">
+                                                                <i class="bi bi-pencil-square"></i> Edit in WordPress
+                                                            </a>
+                                                        {% endif %}
+                                                        {% if step.details.view_link %}
+                                                            | <a href="{{ step.details.view_link }}" target="_blank" class="text-info text-decoration-none">
+                                                                <i class="bi bi-eye"></i> View Live
+                                                            </a>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                {% if step.error %}
+                                                <div class="small text-danger">Error: {{ step.error }}</div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Step status icon -->
+                                            <div class="ms-2">
+                                                {% if step.status == 'completed' %}
+                                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                                {% elif step.status == 'failed' %}
+                                                    <i class="bi bi-x-circle-fill text-danger"></i>
+                                                {% elif step.status == 'running' %}
+                                                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                                {% else %}
+                                                    <i class="bi bi-clock text-muted"></i>
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                        {% if step.error %}
-                                        <div class="small text-danger">Error: {{ step.error }}</div>
-                                        {% endif %}
                                     </div>
                                     {% endfor %}
                                 </div>

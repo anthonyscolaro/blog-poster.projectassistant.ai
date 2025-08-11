@@ -18,13 +18,20 @@ class WordPressPublisher:
     Publishes content to WordPress using environment-appropriate authentication
     """
     
-    def __init__(self):
-        # Load configuration from environment
-        self.wordpress_url = os.getenv("WORDPRESS_URL", "http://localhost:8084")
-        self.auth_method = os.getenv("WP_AUTH_METHOD", "basic")
-        self.username = os.getenv("WP_USERNAME", "admin")
-        self.password = os.getenv("WP_PASSWORD", os.getenv("WP_APP_PASSWORD", "admin123"))
-        self.verify_ssl = os.getenv("WP_VERIFY_SSL", "false").lower() == "true"
+    def __init__(
+        self, 
+        wp_url: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        auth_method: Optional[str] = None,
+        verify_ssl: Optional[bool] = None
+    ):
+        # Use provided parameters or fall back to environment
+        self.wordpress_url = wp_url or os.getenv("WORDPRESS_URL", "http://localhost:8084")
+        self.auth_method = auth_method or os.getenv("WP_AUTH_METHOD", "basic")
+        self.username = username or os.getenv("WP_USERNAME", "admin")
+        self.password = password or os.getenv("WP_PASSWORD", os.getenv("WP_APP_PASSWORD", "admin123"))
+        self.verify_ssl = verify_ssl if verify_ssl is not None else os.getenv("WP_VERIFY_SSL", "false").lower() == "true"
         
         # Determine if we're in local or production
         self.is_local = "localhost" in self.wordpress_url or "127.0.0.1" in self.wordpress_url

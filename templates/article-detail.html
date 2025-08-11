@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-file-text"></i> Article Preview</h2>
+            <div>
+                <button class="btn btn-outline-secondary" onclick="window.history.back()">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+                {% if article.status != 'In Progress' %}
+                <a href="/pipeline" class="btn btn-primary">
+                    <i class="bi bi-diagram-3"></i> Pipeline Monitor
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Article Info Card -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Article Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Content Details</h6>
+                        <p><strong>Title:</strong> {{ article.title or 'Untitled' }}</p>
+                        <p><strong>Slug:</strong> {{ article.slug or 'Not set' }}</p>
+                        <p><strong>Primary Keyword:</strong> {{ article.primary_keyword or 'Not specified' }}</p>
+                        {% if article.word_count %}
+                        <p><strong>Word Count:</strong> {{ article.word_count }} words</p>
+                        {% endif %}
+                        {% if article.seo_score %}
+                        <p><strong>SEO Score:</strong> 
+                            <span class="badge {% if article.seo_score >= 80 %}bg-success{% elif article.seo_score >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ article.seo_score }}/100
+                            </span>
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">SEO Metadata</h6>
+                        <p><strong>Meta Title:</strong><br>
+                           <small class="text-muted">{{ article.meta_title or 'Not set' }}</small>
+                        </p>
+                        <p><strong>Meta Description:</strong><br>
+                           <small class="text-muted">{{ article.meta_description or 'Not set' }}</small>
+                        </p>
+                        <p><strong>Status:</strong> 
+                            <span class="badge {% if article.status == 'In Progress' %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ article.status or 'Draft' }}
+                            </span>
+                        </p>
+                        <p><strong>Created:</strong> {{ article.created_at.strftime('%Y-%m-%d %H:%M:%S') if article.created_at else 'Unknown' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Article Content -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text"></i> Article Content
+                    </h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-light" onclick="copyToClipboard()">
+                            <i class="bi bi-clipboard"></i> Copy Markdown
+                        </button>
+                        <button class="btn btn-sm btn-outline-light" onclick="togglePreview()">
+                            <i class="bi bi-eye" id="previewIcon"></i> <span id="previewText">Preview</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Markdown Content -->
+                <div id="markdownContent" style="display: block;">
+                    <pre><code class="language-markdown">{{ article.content_markdown or article.markdown or 'No content available' }}</code></pre>
+                </div>
+                
+                <!-- HTML Preview -->
+                <div id="htmlPreview" style="display: none;">
+                    {% if article.content_markdown or article.markdown %}
+                        <div class="article-preview">
+                            {{ (article.content_markdown or article.markdown) | markdown | safe }}
+                        </div>
+                    {% else %}
+                        <div class="text-muted text-center py-5">
+                            <i class="bi bi-file-x fs-1"></i>
+                            <h4 class="mt-3">No Content Available</h4>
+                            <p>This article doesn't have any content to display.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+{% if article.status != 'In Progress' %}
+<div class="row mt-4">
+    <div class="col-md-12 text-center">
+        <div class="btn-group" role="group">
+            <button class="btn btn-outline-primary" onclick="editArticle()">
+                <i class="bi bi-pencil-square"></i> Edit Article
+            </button>
+            <button class="btn btn-outline-success" onclick="publishArticle()">
+                <i class="bi bi-wordpress"></i> Publish to WordPress
+            </button>
+            <button class="btn btn-outline-warning" onclick="regenerateArticle()">
+                <i class="bi bi-arrow-clockwise"></i> Regenerate
+            </button>
+            <button class="btn btn-outline-danger" onclick="deleteArticle()">
+                <i class="bi bi-trash"></i> Delete
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let isPreviewMode = false;
+
+function togglePreview() {
+    const markdownContent = document.getElementById('markdownContent');
+    const htmlPreview = document.getElementById('htmlPreview');
+    const previewIcon = document.getElementById('previewIcon');
+    const previewText = document.getElementById('previewText');
+    
+    if (isPreviewMode) {
+        // Show markdown
+        markdownContent.style.display = 'block';
+        htmlPreview.style.display = 'none';
+        previewIcon.className = 'bi bi-eye';
+        previewText.textContent = 'Preview';
+        isPreviewMode = false;
+    } else {
+        // Show HTML preview
+        markdownContent.style.display = 'none';
+        htmlPreview.style.display = 'block';
+        previewIcon.className = 'bi bi-code';
+        previewText.textContent = 'Markdown';
+        isPreviewMode = true;
+    }
+}
+
+function copyToClipboard() {
+    const markdownText = document.querySelector('#markdownContent code').textContent;
+    navigator.clipboard.writeText(markdownText).then(() => {
+        showSuccessToast('Markdown copied to clipboard!');
+    }).catch(err => {
+        showErrorToast('Failed to copy to clipboard');
+    });
+}
+
+function editArticle() {
+    showInfoToast('Edit functionality coming soon!');
+}
+
+function publishArticle() {
+    showInfoToast('Publish functionality coming soon!');
+}
+
+function regenerateArticle() {
+    showInfoToast('Regenerate functionality coming soon!');
+}
+
+function deleteArticle() {
+    showInfoToast('Delete functionality coming soon!');
+}
+
+// Toast notification functions
+function showSuccessToast(message) {
+    showToast(message, 'success', 'bi-check-circle-fill');
+}
+
+function showErrorToast(message) {
+    showToast(message, 'danger', 'bi-x-circle-fill');
+}
+
+function showInfoToast(message) {
+    showToast(message, 'info', 'bi-info-circle-fill');
+}
+
+function showToast(message, type = 'info', icon = 'bi-info-circle') {
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${icon} me-2"></i> ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Add toast to container
+    const toastElement = document.createElement('div');
+    toastElement.innerHTML = toastHtml;
+    toastContainer.appendChild(toastElement.firstElementChild);
+    
+    // Initialize and show toast
+    const toast = new bootstrap.Toast(toastContainer.lastElementChild);
+    toast.show();
+    
+    // Remove after hidden
+    toastContainer.lastElementChild.addEventListener('hidden.bs.toast', function() {
+        this.remove();
+    });
+}
+</script>
+{% endblock %}

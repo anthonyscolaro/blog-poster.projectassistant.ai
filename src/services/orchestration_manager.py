@@ -579,13 +579,52 @@ class OrchestrationManager:
         return progress_map.get(self.current_status, 0)
     
     def _get_current_steps(self) -> List[Dict[str, Any]]:
-        """Get current pipeline steps with status"""
+        """Get current pipeline steps with status and details"""
+        result = self.current_pipeline
+        
         steps = [
-            {"name": "Competitor Monitoring", "status": "completed"},
-            {"name": "Topic Analysis", "status": "completed"},
-            {"name": "Article Generation", "status": "running" if self.current_status == PipelineStatus.GENERATING else "completed"},
-            {"name": "Legal Fact Checking", "status": "pending"},
-            {"name": "WordPress Publishing", "status": "pending"}
+            {
+                "name": "Competitor Monitoring", 
+                "status": "completed" if self.current_status.value >= PipelineStatus.ANALYZING.value else "pending",
+                "details": {
+                    "competitors_analyzed": ["servicedog.org", "nsarco.org", "adacompliancepro.com"] if result and result.competitor_insights else [],
+                    "content_pieces_found": len(result.competitor_insights.get("content_pieces", [])) if result and result.competitor_insights else 0
+                } if result and result.competitor_insights else {}
+            },
+            {
+                "name": "Topic Analysis", 
+                "status": "completed" if self.current_status.value >= PipelineStatus.GENERATING.value else ("running" if self.current_status == PipelineStatus.ANALYZING else "pending"),
+                "details": {
+                    "topic_selected": result.topic_recommendation.primary_keyword if result and result.topic_recommendation else "",
+                    "seo_score": getattr(result.topic_recommendation, 'seo_score', 85) if result and result.topic_recommendation else 85
+                } if result and result.topic_recommendation else {}
+            },
+            {
+                "name": "Article Generation", 
+                "status": "completed" if self.current_status.value >= PipelineStatus.FACT_CHECKING.value else ("running" if self.current_status == PipelineStatus.GENERATING else "pending"),
+                "details": {
+                    "word_count": result.article.word_count if result and result.article else 0,
+                    "article_id": f"current_pipeline" if result and result.article else None
+                } if result and result.article else {}
+            },
+            {
+                "name": "Legal Fact Checking", 
+                "status": "completed" if self.current_status.value >= PipelineStatus.PUBLISHING.value else ("running" if self.current_status == PipelineStatus.FACT_CHECKING else "pending"),
+                "details": {
+                    "claims_checked": result.fact_check_report.total_claims if result and result.fact_check_report else 0,
+                    "accuracy_score": int(result.fact_check_report.overall_accuracy_score * 100) if result and result.fact_check_report else 0,
+                    "issues_found": len(result.fact_check_report.incorrect_claims) if result and result.fact_check_report else 0
+                } if result and result.fact_check_report else {}
+            },
+            {
+                "name": "WordPress Publishing", 
+                "status": "completed" if self.current_status == PipelineStatus.COMPLETED else ("running" if self.current_status == PipelineStatus.PUBLISHING else "pending"),
+                "details": {
+                    "post_id": result.wordpress_result.get("post_id") if result and result.wordpress_result and result.wordpress_result.get("success") else None,
+                    "edit_link": result.wordpress_result.get("edit_link") if result and result.wordpress_result and result.wordpress_result.get("success") else None,
+                    "view_link": result.wordpress_result.get("preview_link") if result and result.wordpress_result and result.wordpress_result.get("success") else None
+                } if result and result.wordpress_result else {}
+            }
         ]
         return steps
         
@@ -604,6 +643,24 @@ class OrchestrationManager:
             elif result.topic_recommendation and hasattr(result.topic_recommendation, 'topic'):
                 primary_keyword = result.topic_recommendation.topic
             
+            # Find matching article file by timestamp
+            article_id = None
+            if result.article:
+                timestamp_str = result.started_at.strftime('%Y%m%d_%H%M%S')
+                # Look for article files with matching timestamp
+                import glob
+                article_files = glob.glob("data/articles/*.json")
+                for file_path in article_files:
+                    if timestamp_str in file_path:
+                        # Extract article slug from filename
+                        filename = os.path.basename(file_path)
+                        article_id = filename.replace('.json', '')
+                        break
+                
+                # Fallback to pipeline_id if no matching file found
+                if not article_id:
+                    article_id = pipeline_id
+            
             history.append({
                 "pipeline_id": pipeline_id,
                 "primary_keyword": primary_keyword,
@@ -613,7 +670,7 @@ class OrchestrationManager:
                 "status": result.status.value,
                 "cost": result.total_cost,
                 "article_generated": bool(result.article),
-                "article_id": pipeline_id if result.article else None
+                "article_id": article_id
             })
         
         return list(reversed(history))  # Most recent first
@@ -684,11 +741,18 @@ class OrchestrationManager:
                         title=article_data.get('title', 'Unknown'),
                         slug=article_data.get('slug', ''),
                         content_markdown=article_data.get('content_markdown', ''),
-                        meta_title=article_data.get('meta_title', ''),
+                        meta_title=article_data.get('meta_title', article_data.get('title', 'Unknown')),
                         meta_description=article_data.get('meta_description', ''),
                         primary_keyword=article_data.get('primary_keyword', ''),
                         secondary_keywords=article_data.get('secondary_keywords', []),
                         word_count=article_data.get('word_count', 0),
+                        reading_level=article_data.get('reading_level', 8.0),
+                        internal_links=article_data.get('internal_links', []),
+                        external_links=article_data.get('external_links', []),
+                        citations=article_data.get('citations', []),
+                        featured_image_prompt=article_data.get('featured_image_prompt', 'Professional article image'),
+                        category=article_data.get('category', 'General'),
+                        tags=article_data.get('tags', []),
                         seo_score=article_data.get('seo_score', 0.0),
                         estimated_reading_time=article_data.get('estimated_reading_time', 0),
                         cost_tracking=article_data.get('cost_tracking')
@@ -705,6 +769,8 @@ class OrchestrationManager:
                             secondary_keywords=article_data.get('secondary_keywords', []),
                             content_type="article",
                             target_word_count=article_data.get('word_count', 1500),
+                            estimated_difficulty=0.5,
+                            estimated_impact=0.8,
                             priority_score=85.0,
                             rationale="Reconstructed from saved article",
                             content_outline=["Introduction", "Main Content", "Conclusion"]

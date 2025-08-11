@@ -293,6 +293,14 @@ app.add_middleware(
 # Setup templates and static files for dashboard
 templates = Jinja2Templates(directory="templates")
 
+# Add markdown filter for rendering content
+import markdown
+def markdown_filter(text):
+    """Convert markdown to HTML"""
+    return markdown.markdown(text, extensions=['codehilite', 'fenced_code'])
+
+templates.env.filters['markdown'] = markdown_filter
+
 # Create directories if they don't exist
 import os
 os.makedirs("templates", exist_ok=True)
@@ -455,7 +463,27 @@ async def publish_to_wordpress(
         meta_title: SEO meta title
         meta_description: SEO meta description
     """
-    publisher = WordPressPublisher()
+    # Get active configuration profile
+    try:
+        from src.config.config_profiles import get_profile_manager
+        manager = get_profile_manager()
+        active_profile = manager.get_active_profile()
+        
+        if active_profile and active_profile.wordpress:
+            # Use configuration from active profile
+            publisher = WordPressPublisher(
+                wp_url=active_profile.wordpress.url,
+                username=active_profile.wordpress.username,
+                password=active_profile.wordpress.password,
+                auth_method=active_profile.wordpress.auth_method,
+                verify_ssl=active_profile.wordpress.verify_ssl
+            )
+        else:
+            # Fallback to environment variables
+            publisher = WordPressPublisher()
+    except Exception as e:
+        logger.warning(f"Could not load active profile, using environment variables: {e}")
+        publisher = WordPressPublisher()
     
     # Test connection first
     connected = await publisher.test_connection()
@@ -1271,6 +1299,66 @@ async def articles_dashboard(request: Request):
         return templates.TemplateResponse("articles.html", context)
     except Exception as e:
         logger.error(f"Articles dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/articles/{article_id}", response_class=HTMLResponse)
+async def article_detail(request: Request, article_id: str):
+    """Individual article detail page"""
+    try:
+        # Try to find the article file
+        import glob
+        import json as json_lib
+        
+        article_data = None
+        
+        # Look for article by ID in filenames
+        article_files = glob.glob("data/articles/*.json")
+        for file_path in article_files:
+            filename = os.path.basename(file_path).replace('.json', '')
+            # Try exact match first, then partial match
+            if article_id == filename or article_id in file_path:
+                try:
+                    with open(file_path, 'r') as f:
+                        article_data = json_lib.load(f)
+                        article_data['file_path'] = file_path
+                        article_data['created_at'] = datetime.fromtimestamp(os.path.getmtime(file_path))
+                        break
+                except Exception:
+                    continue
+        
+        if not article_data:
+            # If not found, check if it's a current pipeline
+            if article_id == "current_pipeline":
+                manager = get_orchestration_manager()
+                if manager and manager.current_pipeline and manager.current_pipeline.article:
+                    article = manager.current_pipeline.article
+                    article_data = {
+                        "title": article.title,
+                        "content_markdown": article.content_markdown,
+                        "meta_title": article.meta_title,
+                        "meta_description": article.meta_description,
+                        "word_count": article.word_count,
+                        "seo_score": article.seo_score,
+                        "primary_keyword": article.primary_keyword,
+                        "slug": article.slug,
+                        "created_at": datetime.now(),
+                        "status": "In Progress"
+                    }
+                else:
+                    raise HTTPException(404, "Article not found")
+            else:
+                raise HTTPException(404, "Article not found")
+        
+        context = {
+            "request": request,
+            "title": f"Article: {article_data.get('title', 'Unknown')}",
+            "article": article_data,
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        return templates.TemplateResponse("article-detail.html", context)
+    except Exception as e:
+        logger.error(f"Article detail error: {e}")
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
 
 @app.get("/health-dashboard", response_class=HTMLResponse)
