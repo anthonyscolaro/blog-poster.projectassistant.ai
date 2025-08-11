@@ -1,0 +1,92 @@
+"""
+Core Pydantic models for the Blog Poster application
+"""
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, HttpUrl, Field
+
+
+class InternalLinkCandidate(BaseModel):
+    url: HttpUrl
+    title: str
+    embedding_id: Optional[str] = None
+    brief_summary: Optional[str] = None
+
+
+class TopicRec(BaseModel):
+    topic_slug: str
+    primary_kw: str
+    secondary_kws: List[str] = []
+    title_variants: List[str] = []
+    rationale: Optional[str] = None
+    supporting_urls: List[HttpUrl] = []
+    score_breakdown: Dict[str, float] = {}
+    risk_flags: List[str] = []
+
+
+class BrandStyle(BaseModel):
+    voice: str = "clear, empathetic"
+    audience: str = "general public"
+    tone: str = "confident"
+    reading_grade_target: int = 8
+    banned_phrases: List[str] = []
+
+
+class SiteInfo(BaseModel):
+    site_url: HttpUrl
+    canonical_base: HttpUrl
+    category_map: Dict[str, int]
+    internal_link_candidates: List[InternalLinkCandidate] = []
+
+
+class SerpItem(BaseModel):
+    url: HttpUrl
+    title: str
+    h1: Optional[str] = None
+    h2s: List[str] = []
+    meta_desc: Optional[str] = None
+
+
+class CompetitorChunk(BaseModel):
+    url: HttpUrl
+    text: str
+    chunk_id: str
+
+
+class Evidence(BaseModel):
+    facts: List[str] = []
+    statutes: List[str] = []  # e.g., "28 CFR §36.302(c)"
+    dates: List[str] = []     # human-readable dates or ISO
+    sources: List[HttpUrl] = []
+    serp_snapshot: List[SerpItem] = []
+    competitor_chunks: List[CompetitorChunk] = []
+
+
+class Constraints(BaseModel):
+    min_words: int = 1500
+    max_words: int = 2500
+    image_policy: str = "stock_or_generated_ok"
+    require_disclaimer: bool = True
+    disallow_competitor_links: bool = True
+
+
+class InputsEnvelope(BaseModel):
+    topic_rec: TopicRec
+    brand_style: BrandStyle
+    site_info: SiteInfo
+    evidence: Evidence
+    constraints: Constraints
+
+
+class ArticleDraft(BaseModel):
+    title: str
+    slug: str
+    category: str
+    tags: List[str]
+    meta_title: str
+    meta_desc: str
+    canonical: HttpUrl
+    schema_jsonld: Dict[str, Any]
+    hero_image_prompt: str
+    internal_link_targets: List[HttpUrl]
+    citations: List[HttpUrl]
+    markdown: str
