@@ -5,9 +5,10 @@ import logging
 from typing import Dict, Optional
 from fastapi import APIRouter
 
-from src.services.api_keys_manager import get_api_keys_manager
-
 logger = logging.getLogger(__name__)
+
+# Database-backed API keys manager only (no fallback)
+from src.services.api_keys_manager_db import get_api_keys_manager_db as get_api_keys_manager
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 

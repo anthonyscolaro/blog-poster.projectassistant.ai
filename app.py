@@ -16,14 +16,30 @@ Env (example):
   QDRANT_URL=http://localhost:6333
 """
 import os
+import sys
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize database on startup (required)
+from src.database import init_database
+try:
+    init_database()
+    logger.info("Database initialized successfully")
+except Exception as e:
+    logger.error(f"FATAL: Database initialization failed: {e}")
+    logger.error("Cannot start application without database connection")
+    logger.error("Please ensure DATABASE_URL is set and PostgreSQL is running")
+    sys.exit(1)
 
 # Import all routers
 from src.routers import (
@@ -92,13 +108,45 @@ except Exception as e:
     logger.info(f"Config router not available: {e}")
 
 # ------------------------------
-# Cleanup on shutdown
+# Startup and Shutdown Events
 # ------------------------------
+@app.on_event("startup")
+async def startup_event():
+    """Initialize resources on startup"""
+    logger.info("Starting Blog Poster application")
+    
+    # Verify database connection
+    db_url = os.getenv('DATABASE_URL')
+    if not db_url:
+        logger.error("FATAL: DATABASE_URL environment variable not set")
+        logger.error("Cannot start application without database connection")
+        sys.exit(1)
+    
+    logger.info(f"Using PostgreSQL database: {db_url.split('@')[1] if '@' in db_url else 'configured'}")
+    
+    # Test database connection
+    try:
+        from src.database import test_connection
+        if not test_connection():
+            logger.error("FATAL: Database connection test failed")
+            sys.exit(1)
+        logger.info("Database connection verified")
+    except Exception as e:
+        logger.error(f"FATAL: Database connection test failed: {e}")
+        sys.exit(1)
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown"""
     logger.info("Shutting down Blog Poster application")
-    # Add any cleanup logic here
+    
+    # Close database connections
+    try:
+        from src.database import engine
+        engine.dispose()
+        logger.info("Database connections closed")
+    except Exception as e:
+        logger.warning(f"Error closing database: {e}")
 
 # ------------------------------
 # Dev harness
