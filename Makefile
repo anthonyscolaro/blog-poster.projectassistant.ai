@@ -1,18 +1,22 @@
-.PHONY: help format lint test clean install install-dev up down restart logs shell
+.PHONY: help format lint test test-unit test-integration test-docker test-all clean install install-dev up down restart logs shell
 
 help:
 	@echo "Available commands:"
-	@echo "  make install      - Install production dependencies"
-	@echo "  make install-dev  - Install development dependencies"
-	@echo "  make format       - Format code with black and isort"
-	@echo "  make lint         - Run linting with flake8 and mypy"
-	@echo "  make test         - Run tests with pytest"
-	@echo "  make clean        - Remove cache files"
-	@echo "  make up           - Start Docker containers"
-	@echo "  make down         - Stop Docker containers"
-	@echo "  make restart      - Restart Docker containers"
-	@echo "  make logs         - Show API logs"
-	@echo "  make shell        - Open shell in API container"
+	@echo "  make install        - Install production dependencies"
+	@echo "  make install-dev    - Install development dependencies"
+	@echo "  make format         - Format code with black and isort"
+	@echo "  make lint           - Run linting with flake8 and mypy"
+	@echo "  make test           - Run comprehensive test suite"
+	@echo "  make test-unit      - Run unit tests only"
+	@echo "  make test-integration - Run integration tests"
+	@echo "  make test-docker    - Run Docker integration tests"
+	@echo "  make test-all       - Run all tests including Docker and style"
+	@echo "  make clean          - Remove cache files"
+	@echo "  make up             - Start Docker containers"
+	@echo "  make down           - Stop Docker containers"
+	@echo "  make restart        - Restart Docker containers"
+	@echo "  make logs           - Show API logs"
+	@echo "  make shell          - Open shell in API container"
 
 install:
 	pip install -r requirements.txt
@@ -30,7 +34,19 @@ lint:
 	mypy . --config-file pyproject.toml
 
 test:
-	pytest tests/ -v --cov=. --cov-report=term-missing
+	python run_tests.py
+
+test-unit:
+	pytest tests/ -v --tb=short --cov=. --cov-report=term-missing -k "not (docker or integration or real_)"
+
+test-integration:
+	pytest tests/test_api_endpoints.py -v --tb=short -k "not (docker or real_)"
+
+test-docker:
+	python run_tests.py --include-docker
+
+test-all:
+	python run_tests.py --include-docker --include-style
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
