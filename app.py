@@ -445,6 +445,7 @@ async def publish_to_wordpress(
     content: str,
     status: Literal["draft", "publish"] = "draft",
     slug: Optional[str] = None,
+    category_name: Optional[str] = None,
     categories: Optional[List[int]] = None,
     tags: Optional[List[int]] = None,
     meta_title: Optional[str] = None,
@@ -492,6 +493,30 @@ async def publish_to_wordpress(
             "success": False,
             "error": "Failed to connect to WordPress. Check credentials and URL."
         }
+    
+    # Handle category mapping if not provided but category_name is given
+    if not categories and category_name:
+        try:
+            # Get all WordPress categories
+            wp_categories = await publisher.get_categories()
+            
+            # Try to find exact match first
+            category_id = None
+            for cat in wp_categories:
+                if cat['name'].lower() == category_name.lower():
+                    category_id = cat['id']
+                    break
+            
+            if category_id:
+                categories = [category_id]
+                logger.info(f"Mapped category '{category_name}' to WordPress category ID {category_id}")
+            else:
+                # Category doesn't exist - create it
+                logger.info(f"Category '{category_name}' not found, will use default category")
+                categories = []  # WordPress will use default category
+        except Exception as e:
+            logger.warning(f"Failed to map category '{category_name}': {e}")
+            categories = []
     
     # Prepare meta fields if SEO data provided
     meta = {}
@@ -1298,6 +1323,28 @@ async def pipeline_dashboard(request: Request):
             else:
                 time_ago = "Just now"
             
+            # Find the correct article ID by looking for matching article file
+            article_id = None
+            if result.article:
+                # Extract timestamp from pipeline_id (format: pipeline_YYYYMMDDHHMISS_X)
+                timestamp_part = pipeline_id.replace("pipeline_", "").split("_")[0]
+                if len(timestamp_part) == 14:  # YYYYMMDDHHMISS
+                    formatted_timestamp = f"{timestamp_part[:8]}_{timestamp_part[8:]}"
+                    
+                    # Look for article files with matching timestamp
+                    import glob
+                    article_files = glob.glob("data/articles/*.json")
+                    for file_path in article_files:
+                        if formatted_timestamp in file_path:
+                            # Extract article slug from filename
+                            filename = os.path.basename(file_path)
+                            article_id = filename.replace('.json', '')
+                            break
+                
+                # Fallback to pipeline_id if no matching file found
+                if not article_id:
+                    article_id = pipeline_id
+
             pipeline_history.append({
                 "pipeline_id": pipeline_id,
                 "primary_keyword": primary_keyword,
@@ -1307,7 +1354,7 @@ async def pipeline_dashboard(request: Request):
                 "status": result.status.value,
                 "cost": result.total_cost,
                 "article_generated": bool(result.article),
-                "article_id": pipeline_id if result.article else None
+                "article_id": article_id
             })
         
         context = {
@@ -1330,6 +1377,24 @@ async def view_pipeline_details(request: Request, pipeline_id: str):
         # Get pipeline details from API
         details = await get_pipeline_details(pipeline_id)
         
+        # Find the correct article ID by looking for matching article file
+        article_id = pipeline_id  # Default fallback
+        if details.get("article"):
+            # Extract timestamp from pipeline_id (format: pipeline_YYYYMMDDHHMISS_X)
+            timestamp_part = pipeline_id.replace("pipeline_", "").split("_")[0]
+            if len(timestamp_part) == 14:  # YYYYMMDDHHMISS
+                formatted_timestamp = f"{timestamp_part[:8]}_{timestamp_part[8:]}"
+                
+                # Look for article files with matching timestamp
+                import glob
+                article_files = glob.glob("data/articles/*.json")
+                for file_path in article_files:
+                    if formatted_timestamp in file_path:
+                        # Extract article slug from filename
+                        filename = os.path.basename(file_path)
+                        article_id = filename.replace('.json', '')
+                        break
+
         # Format the data for the template
         pipeline = {
             "pipeline_id": details["pipeline_id"],
@@ -1339,7 +1404,7 @@ async def view_pipeline_details(request: Request, pipeline_id: str):
             "execution_time": details["execution_time"],
             "total_cost": details["total_cost"],
             "primary_keyword": details["primary_keyword"],
-            "article_id": pipeline_id,
+            "article_id": article_id,
             "article": details.get("article"),
             "topic_recommendation": details.get("topic_recommendation"),
             "competitor_insights": details.get("competitor_insights"),
@@ -1398,6 +1463,39 @@ async def articles_dashboard(request: Request):
     except Exception as e:
         logger.error(f"Articles dashboard error: {e}")
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.delete("/api/articles/{article_id}")
+async def delete_article(article_id: str):
+    """Delete an article file"""
+    try:
+        import glob
+        import os
+        
+        # Find the article file
+        article_files = glob.glob("data/articles/*.json")
+        article_path = None
+        
+        for file_path in article_files:
+            filename = os.path.basename(file_path).replace('.json', '')
+            if article_id == filename or article_id in file_path:
+                article_path = file_path
+                break
+        
+        if not article_path:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        # Delete the file
+        os.remove(article_path)
+        logger.info(f"Deleted article: {article_path}")
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Article deleted successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to delete article {article_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete article: {str(e)}")
 
 @app.get("/articles/{article_id}", response_class=HTMLResponse)
 async def article_detail(request: Request, article_id: str):
@@ -1725,7 +1823,18 @@ async def test_api_key(key_name: str):
     """Test if an API key is valid"""
     try:
         api_keys_manager = get_api_keys_manager()
-        result = api_keys_manager.test_api_key(key_name)
+        
+        # Get the key value
+        key_value = api_keys_manager.get_key(key_name)
+        if not key_value:
+            return {"success": False, "message": "Key not configured"}
+        
+        # Validate format first
+        if not api_keys_manager.validate_key(key_name, key_value):
+            return {"success": False, "message": "Invalid key format"}
+        
+        # Test the key asynchronously
+        result = await api_keys_manager._test_api_key_async(key_name, key_value)
         return result
     except Exception as e:
         logger.error(f"Failed to test API key {key_name}: {e}")
