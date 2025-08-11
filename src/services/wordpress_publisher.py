@@ -280,6 +280,42 @@ class WordPressPublisher:
             logger.error(f"Failed to get tags: {e}")
             return []
     
+    async def health_check(self) -> Dict[str, Any]:
+        """Check WordPress connection health"""
+        try:
+            async with httpx.AsyncClient(verify=self.verify_ssl, timeout=10.0) as client:
+                # Test basic authentication by getting user info
+                response = await client.get(
+                    f"{self.api_base}/users/me",
+                    headers=self._get_auth_headers()
+                )
+                
+                if response.status_code == 200:
+                    user_data = response.json()
+                    return {
+                        "status": "healthy",
+                        "authenticated_user": user_data.get("name", "Unknown"),
+                        "wp_version": user_data.get("capabilities", {}).get("publish_posts", False),
+                        "response_time_ms": response.elapsed.total_seconds() * 1000
+                    }
+                else:
+                    return {
+                        "status": "error",
+                        "error": f"Authentication failed: {response.status_code}",
+                        "response_time_ms": response.elapsed.total_seconds() * 1000
+                    }
+                    
+        except httpx.TimeoutException:
+            return {
+                "status": "error",
+                "error": "Connection timeout (10s)"
+            }
+        except Exception as e:
+            return {
+                "status": "error", 
+                "error": str(e)
+            }
+    
     def _generate_slug(self, title: str) -> str:
         """Generate URL-friendly slug from title"""
         import re

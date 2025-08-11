@@ -343,9 +343,11 @@ async def health_dashboard(request: Request):
         try:
             from src.services.wordpress_publisher import WordPressPublisher
             wp_publisher = WordPressPublisher()
-            # This would need a health check method
-            health_data["services"]["wordpress"] = "unknown"
-        except:
+            wp_health = await wp_publisher.health_check()
+            health_data["services"]["wordpress"] = wp_health["status"]
+            health_data["metrics"]["wordpress"] = wp_health
+        except Exception as e:
+            logger.error(f"WordPress health check error: {e}")
             health_data["services"]["wordpress"] = "error"
         
         # Check Bright Data
