@@ -394,6 +394,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if 'competitors' in request.url.path %}active{% endif %}" href="/competitors">
+                                <i class="bi bi-trophy"></i> Competitors
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if 'profile-settings' in request.url.path %}active{% endif %}" href="/profile-settings">
                                 <i class="bi bi-person-gear"></i> Profile Settings
                             </a>

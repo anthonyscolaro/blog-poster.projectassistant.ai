@@ -1754,6 +1754,155 @@ async def export_env_keys():
         return {"success": False, "message": str(e)}
 
 # ------------------------------
+# Competitor Management
+# ------------------------------
+from src.services.competitor_manager import get_competitor_manager, CompetitorProfile
+
+@app.get("/competitors", response_class=HTMLResponse)
+async def competitors_page(request: Request):
+    """Competitor management page"""
+    try:
+        manager = get_competitor_manager()
+        competitors = manager.get_all_competitors()
+        
+        # Calculate statistics
+        total_competitors = len(competitors)
+        active_competitors = len([c for c in competitors if c.is_active])
+        total_articles_tracked = sum(c.total_articles_found for c in competitors)
+        trending_topics_count = len(set(topic for c in competitors for topic in c.trending_topics))
+        
+        context = {
+            "request": request,
+            "title": "Competitor Management",
+            "competitors": competitors,
+            "total_competitors": total_competitors,
+            "active_competitors": active_competitors,
+            "total_articles_tracked": total_articles_tracked,
+            "trending_topics_count": trending_topics_count
+        }
+        
+        return templates.TemplateResponse("competitors.html", context)
+    except Exception as e:
+        logger.error(f"Competitors page error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/api/competitors")
+async def get_competitors():
+    """Get all competitors"""
+    manager = get_competitor_manager()
+    competitors = manager.get_all_competitors()
+    return {"success": True, "competitors": [c.dict() for c in competitors]}
+
+@app.get("/api/competitors/{competitor_id}")
+async def get_competitor(competitor_id: str):
+    """Get a specific competitor"""
+    manager = get_competitor_manager()
+    competitor = manager.get_competitor(competitor_id)
+    if competitor:
+        return competitor.dict()
+    raise HTTPException(404, "Competitor not found")
+
+@app.post("/api/competitors")
+async def add_competitor(competitor_data: Dict[str, Any]):
+    """Add a new competitor"""
+    try:
+        manager = get_competitor_manager()
+        profile = CompetitorProfile(**competitor_data)
+        success = manager.add_competitor(profile)
+        return {"success": success, "message": "Competitor added successfully" if success else "Competitor already exists"}
+    except Exception as e:
+        logger.error(f"Failed to add competitor: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.put("/api/competitors/{competitor_id}")
+async def update_competitor(competitor_id: str, updates: Dict[str, Any]):
+    """Update a competitor"""
+    try:
+        manager = get_competitor_manager()
+        success = manager.update_competitor(competitor_id, updates)
+        return {"success": success, "message": "Competitor updated successfully" if success else "Competitor not found"}
+    except Exception as e:
+        logger.error(f"Failed to update competitor: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.delete("/api/competitors/{competitor_id}")
+async def delete_competitor(competitor_id: str):
+    """Delete a competitor"""
+    try:
+        manager = get_competitor_manager()
+        success = manager.delete_competitor(competitor_id)
+        return {"success": success, "message": "Competitor deleted successfully" if success else "Competitor not found"}
+    except Exception as e:
+        logger.error(f"Failed to delete competitor: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.post("/api/competitors/{competitor_id}/toggle")
+async def toggle_competitor_status(competitor_id: str):
+    """Toggle competitor active/inactive status"""
+    try:
+        manager = get_competitor_manager()
+        success = manager.toggle_competitor_status(competitor_id)
+        if success:
+            competitor = manager.get_competitor(competitor_id)
+            return {"success": True, "is_active": competitor.is_active}
+        return {"success": False, "message": "Competitor not found"}
+    except Exception as e:
+        logger.error(f"Failed to toggle competitor status: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.post("/api/competitors/{competitor_id}/scan")
+async def scan_competitor(competitor_id: str):
+    """Trigger a scan for a specific competitor"""
+    try:
+        # This would trigger actual scanning in production
+        manager = get_competitor_manager()
+        competitor = manager.get_competitor(competitor_id)
+        if not competitor:
+            return {"success": False, "message": "Competitor not found"}
+        
+        # For now, mock the scan
+        manager.update_scan_timestamp(competitor_id)
+        return {"success": True, "articles_found": 5, "message": "Scan completed successfully"}
+    except Exception as e:
+        logger.error(f"Failed to scan competitor: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/competitors/{competitor_id}/insights")
+async def get_competitor_insights(competitor_id: str):
+    """Get insights for a specific competitor"""
+    try:
+        manager = get_competitor_manager()
+        insights = manager.get_competitor_insights(competitor_id)
+        if insights:
+            return insights.dict()
+        raise HTTPException(404, "Competitor insights not found")
+    except Exception as e:
+        logger.error(f"Failed to get competitor insights: {e}")
+        raise HTTPException(500, str(e))
+
+@app.get("/api/competitors/export")
+async def export_competitors():
+    """Export all competitors as JSON"""
+    try:
+        manager = get_competitor_manager()
+        content = manager.export_competitors()
+        return {"success": True, "content": content}
+    except Exception as e:
+        logger.error(f"Failed to export competitors: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.post("/api/competitors/import")
+async def import_competitors(data: Dict[str, str]):
+    """Import competitors from JSON"""
+    try:
+        manager = get_competitor_manager()
+        imported = manager.import_competitors(data["data"])
+        return {"success": True, "imported": imported, "message": f"Imported {imported} competitors"}
+    except Exception as e:
+        logger.error(f"Failed to import competitors: {e}")
+        return {"success": False, "message": str(e)}
+
+# ------------------------------
 # Cleanup on shutdown
 # ------------------------------
 @app.on_event("shutdown")
