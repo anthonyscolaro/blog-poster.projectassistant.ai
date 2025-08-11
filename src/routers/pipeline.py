@@ -8,14 +8,12 @@ import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
-from src.services.orchestration_manager import (
-    OrchestrationManager, 
-    PipelineConfig, 
-    PipelineResult,
-    PipelineStatus
-)
-
 logger = logging.getLogger(__name__)
+
+# Database-backed services only (no fallback)
+from src.services.orchestration_manager_db import OrchestrationManager
+from src.models.pipeline import PipelineResult, PipelineStatus
+from src.models.article_models import ArticleRequest
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -31,7 +29,7 @@ def get_orchestration_manager():
 
 
 @router.post("/run")
-async def run_full_pipeline(config: PipelineConfig):
+async def run_full_pipeline(config: ArticleRequest):
     """
     Run the complete multi-agent blog generation pipeline
     
