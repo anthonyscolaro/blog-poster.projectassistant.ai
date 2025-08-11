@@ -865,13 +865,17 @@ async def run_full_pipeline(config: PipelineConfig):
         logger.info(f"Starting pipeline for topic: {config.topic or 'auto-determined'}")
         result = await manager.run_pipeline(config)
         
+        # Generate a pipeline ID based on start time
+        pipeline_id = f"pipeline_{result.started_at.strftime('%Y%m%d%H%M%S')}"
+        
         # Convert to dict for response
         response = {
             "status": result.status,
             "execution_time": result.execution_time,
             "total_cost": result.total_cost,
             "errors": result.errors,
-            "warnings": result.warnings
+            "warnings": result.warnings,
+            "pipeline_id": pipeline_id
         }
         
         # Add article details if generated
@@ -1177,10 +1181,49 @@ async def pipeline_dashboard(request: Request):
     """Pipeline monitoring page"""
     try:
         orchestration_status = get_orchestration_manager()
+        logger.info(f"Got orchestration manager: {orchestration_status is not None}")
         
-        # Get pipeline history and current status - use the dashboard method that returns dicts
-        pipeline_history = await orchestration_status.get_pipeline_history_dashboard() if orchestration_status else []
+        # Get pipeline history using the working API method instead of dashboard method
+        pipeline_history_api = orchestration_status.get_pipeline_history(20) if orchestration_status else []
         active_pipelines = await orchestration_status.get_active_pipelines() if orchestration_status else []
+        logger.info(f"Pipeline history API returned: {len(pipeline_history_api)} items")
+        logger.info(f"Active pipelines: {len(active_pipelines)} items")
+        
+        # Convert API format to dashboard format
+        pipeline_history = []
+        for i, result in enumerate(pipeline_history_api):
+            pipeline_id = f"pipeline_{result.started_at.strftime('%Y%m%d%H%M%S')}_{i}"
+            
+            # Extract the primary keyword
+            primary_keyword = "Unknown"
+            if result.topic_recommendation and hasattr(result.topic_recommendation, 'primary_keyword'):
+                primary_keyword = result.topic_recommendation.primary_keyword
+            elif result.topic_recommendation and hasattr(result.topic_recommendation, 'topic'):
+                primary_keyword = result.topic_recommendation.topic
+            
+            # Calculate time ago
+            now = datetime.now()
+            diff = now - result.started_at
+            if diff.days > 0:
+                time_ago = f"{diff.days} days ago"
+            elif diff.seconds > 3600:
+                time_ago = f"{diff.seconds // 3600} hours ago"
+            elif diff.seconds > 60:
+                time_ago = f"{diff.seconds // 60} minutes ago"
+            else:
+                time_ago = "Just now"
+            
+            pipeline_history.append({
+                "pipeline_id": pipeline_id,
+                "primary_keyword": primary_keyword,
+                "started_at": result.started_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "time_ago": time_ago,
+                "duration": result.execution_time if result.execution_time else None,
+                "status": result.status.value,
+                "cost": result.total_cost,
+                "article_generated": bool(result.article),
+                "article_id": pipeline_id if result.article else None
+            })
         
         context = {
             "request": request,
@@ -1385,13 +1428,13 @@ from src.services.pipeline_logger import pipeline_logger
 @app.websocket("/ws/logs/{pipeline_id}")
 async def websocket_logs(websocket: WebSocket, pipeline_id: str):
     """WebSocket endpoint for streaming pipeline logs"""
-    await websocket.accept()
-    logger.info(f"WebSocket connected for pipeline {pipeline_id}")
-    
-    # Add this connection to the pipeline logger
-    pipeline_logger.add_connection(pipeline_id, websocket)
-    
     try:
+        await websocket.accept()
+        logger.info(f"WebSocket connected for pipeline {pipeline_id}")
+        
+        # Add this connection to the pipeline logger
+        pipeline_logger.add_connection(pipeline_id, websocket)
+        
         # Send initial logs if any exist
         existing_logs = pipeline_logger.get_logs(pipeline_id, limit=100)
         if existing_logs:
@@ -1408,16 +1451,24 @@ async def websocket_logs(websocket: WebSocket, pipeline_id: str):
                 if data == "ping":
                     await websocket.send_text("pong")
             except WebSocketDisconnect:
+                logger.info(f"WebSocket client disconnected for pipeline {pipeline_id}")
                 break
             except Exception as e:
-                logger.error(f"WebSocket error: {e}")
+                logger.error(f"WebSocket receive error for pipeline {pipeline_id}: {e}")
                 break
                 
     except Exception as e:
-        logger.error(f"WebSocket handler error: {e}")
+        logger.error(f"WebSocket handler error for pipeline {pipeline_id}: {e}")
+        try:
+            await websocket.close(code=1000)
+        except:
+            pass
     finally:
         # Remove connection when done
-        pipeline_logger.remove_connection(pipeline_id, websocket)
+        try:
+            pipeline_logger.remove_connection(pipeline_id, websocket)
+        except Exception as e:
+            logger.error(f"Error removing WebSocket connection: {e}")
         logger.info(f"WebSocket disconnected for pipeline {pipeline_id}")
 
 @app.get("/logs/{pipeline_id}")

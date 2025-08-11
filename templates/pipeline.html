@@ -423,16 +423,25 @@ function connectToLogs(pipelineId) {
     };
     
     logWebSocket.onmessage = function(event) {
-        const data = JSON.parse(event.data);
+        // Skip heartbeat pongs
+        if (event.data === 'pong') {
+            return;
+        }
         
-        if (data.type === 'initial' && data.logs) {
-            // Display initial logs
-            data.logs.forEach(log => {
-                addLogEntry(log.level, log.message, log.agent, log.data, log.timestamp);
-            });
-        } else {
-            // Single log entry
-            addLogEntry(data.level, data.message, data.agent, data.data, data.timestamp);
+        try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'initial' && data.logs) {
+                // Display initial logs
+                data.logs.forEach(log => {
+                    addLogEntry(log.level, log.message, log.agent, log.data, log.timestamp);
+                });
+            } else {
+                // Single log entry
+                addLogEntry(data.level, data.message, data.agent, data.data, data.timestamp);
+            }
+        } catch (e) {
+            console.error('Error parsing WebSocket message:', e, event.data);
         }
     };
     

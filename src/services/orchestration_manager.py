@@ -9,9 +9,12 @@ Coordinates the sequential execution of all agents:
 5. WordPress Publishing Agent - Deploys content
 """
 import asyncio
+import json
 import logging
 import hashlib
 import uuid
+import glob
+import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
@@ -117,6 +120,9 @@ class OrchestrationManager:
         self.average_generation_time = 0.0
         self.success_rate = 100.0
         self.last_error: Optional[str] = None
+        
+        # Load pipeline history from saved files
+        self._load_pipeline_history()
     
     async def run_pipeline(self, config: PipelineConfig) -> PipelineResult:
         """
@@ -200,6 +206,7 @@ class OrchestrationManager:
             
             # Mark as completed
             result.status = PipelineStatus.COMPLETED
+            self.current_status = None  # Clear current status when completed
             result.completed_at = datetime.now()
             result.execution_time = (result.completed_at - start_time).total_seconds()
             
@@ -211,6 +218,7 @@ class OrchestrationManager:
             
         except Exception as e:
             result.status = PipelineStatus.FAILED
+            self.current_status = None  # Clear current status when failed
             result.errors.append(str(e))
             result.completed_at = datetime.now()
             result.execution_time = (result.completed_at - start_time).total_seconds()
@@ -623,6 +631,99 @@ class OrchestrationManager:
             return f"{diff.seconds // 60} minutes ago"
         else:
             return "Just now"
+    
+    def _load_pipeline_history(self):
+        """Load pipeline history from saved article files"""
+        try:
+            # Find all article files
+            article_dir = Path("data/articles")
+            if not article_dir.exists():
+                logger.info("No article directory found, starting with empty history")
+                return
+            
+            article_files = sorted(article_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+            logger.info(f"Found {len(article_files)} article files")
+            
+            for article_file in article_files[:50]:  # Load last 50 articles
+                try:
+                    with open(article_file, 'r') as f:
+                        article_data = json.load(f)
+                    
+                    # Skip invalid files
+                    if not article_data.get('generated_at') or not article_data.get('title'):
+                        continue
+                    
+                    # Parse timestamp
+                    try:
+                        generated_at = datetime.fromisoformat(article_data['generated_at'])
+                    except:
+                        # Try parsing filename timestamp as fallback
+                        filename = article_file.stem
+                        if '_' in filename:
+                            date_part = filename.split('_')[-1]
+                            if len(date_part) == 8:  # YYYYMMDD format
+                                generated_at = datetime.strptime(date_part, '%Y%m%d')
+                            else:
+                                generated_at = datetime.fromtimestamp(article_file.stat().st_mtime)
+                        else:
+                            generated_at = datetime.fromtimestamp(article_file.stat().st_mtime)
+                    
+                    # Create a PipelineResult from the article data
+                    pipeline_result = PipelineResult(
+                        status=PipelineStatus.COMPLETED,  # Assume completed if article exists
+                        started_at=generated_at,
+                        completed_at=generated_at,
+                        execution_time=0.0,  # Unknown
+                        total_cost=article_data.get('cost_tracking', {}).get('cost', 0.0),
+                        errors=[],
+                        warnings=[]
+                    )
+                    
+                    # Create a simplified GeneratedArticle object
+                    article = GeneratedArticle(
+                        title=article_data.get('title', 'Unknown'),
+                        slug=article_data.get('slug', ''),
+                        content_markdown=article_data.get('content_markdown', ''),
+                        meta_title=article_data.get('meta_title', ''),
+                        meta_description=article_data.get('meta_description', ''),
+                        primary_keyword=article_data.get('primary_keyword', ''),
+                        secondary_keywords=article_data.get('secondary_keywords', []),
+                        word_count=article_data.get('word_count', 0),
+                        seo_score=article_data.get('seo_score', 0.0),
+                        estimated_reading_time=article_data.get('estimated_reading_time', 0),
+                        cost_tracking=article_data.get('cost_tracking')
+                    )
+                    
+                    pipeline_result.article = article
+                    
+                    # Create a topic recommendation if we have keyword data
+                    if article_data.get('primary_keyword'):
+                        topic_rec = TopicRecommendation(
+                            title=article_data.get('title', 'Unknown'),
+                            slug=article_data.get('slug', ''),
+                            primary_keyword=article_data.get('primary_keyword', ''),
+                            secondary_keywords=article_data.get('secondary_keywords', []),
+                            content_type="article",
+                            target_word_count=article_data.get('word_count', 1500),
+                            priority_score=85.0,
+                            rationale="Reconstructed from saved article",
+                            content_outline=["Introduction", "Main Content", "Conclusion"]
+                        )
+                        pipeline_result.topic_recommendation = topic_rec
+                    
+                    self.pipeline_history.append(pipeline_result)
+                    
+                except Exception as e:
+                    logger.warning(f"Could not load article {article_file}: {e}")
+                    continue
+            
+            # Sort by started_at
+            self.pipeline_history.sort(key=lambda x: x.started_at, reverse=True)
+            logger.info(f"Loaded {len(self.pipeline_history)} pipeline results from saved articles")
+            
+        except Exception as e:
+            logger.error(f"Failed to load pipeline history: {e}")
+            self.pipeline_history = []
 
     async def close(self):
         """Clean up resources"""

@@ -610,7 +610,11 @@ async function saveProfile() {
 }
 
 async function activateProfile(profileId) {
-    if (confirm('Set this profile as active? This will deactivate the current active profile.')) {
+    const confirmed = await showConfirm(
+        'Activate Profile',
+        'Set this profile as active? This will deactivate the current active profile.'
+    );
+    if (confirmed) {
         try {
             const response = await fetch(`/api/config/profiles/${profileId}/activate`, {
                 method: 'POST'
@@ -669,7 +673,11 @@ async function confirmDuplicate() {
 async function deleteProfile(profileId) {
     const profile = currentProfiles.find(p => p.id === profileId);
     
-    if (confirm(`Delete profile "${profile.name}"? This action cannot be undone.`)) {
+    const confirmed = await showConfirm(
+        'Delete Profile',
+        `Delete profile "${profile.name}"? This action cannot be undone.`
+    );
+    if (confirmed) {
         try {
             const response = await fetch(`/api/config/profiles/${profileId}`, {
                 method: 'DELETE'
@@ -728,14 +736,7 @@ async function createDefaults() {
     }
 }
 
-function showError(message) {
-    // Simple alert for now - could be enhanced with toast notifications
-    alert('Error: ' + message);
-}
-
-function showSuccess(message) {
-    // Simple alert for now - could be enhanced with toast notifications
-    alert('Success: ' + message);
-}
+// showError and showSuccess are now provided by base.html
+// Remove local functions to avoid conflicts
 </script>
 {% endblock %}

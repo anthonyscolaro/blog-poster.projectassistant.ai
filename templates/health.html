@@ -357,10 +357,10 @@ async function testAllServices() {
             message += `${service}: ${status}\n`;
         }
         
-        alert(message);
-        window.location.reload();
+        showInfo(message);
+        setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
-        alert('Failed to test services: ' + error.message);
+        showError('Failed to test services: ' + error.message);
     } finally {
         btn.innerHTML = '<i class="bi bi-check-circle"></i> Test All Services';
         btn.disabled = false;
@@ -377,12 +377,12 @@ async function testWordPressConnection() {
         const result = await response.json();
         
         if (response.ok) {
-            alert('WordPress connection successful!');
+            showSuccess('WordPress connection successful!');
         } else {
-            alert('WordPress connection failed: ' + result.detail);
+            showError('WordPress connection failed: ' + result.detail);
         }
     } catch (error) {
-        alert('WordPress test failed: ' + error.message);
+        showError('WordPress test failed: ' + error.message);
     } finally {
         btn.innerHTML = '<i class="bi bi-wordpress"></i> Test WordPress';
         btn.disabled = false;
