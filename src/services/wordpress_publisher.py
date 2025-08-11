@@ -28,9 +28,17 @@ class WordPressPublisher:
     ):
         # Use provided parameters or fall back to environment
         self.wordpress_url = wp_url or os.getenv("WORDPRESS_URL", "http://localhost:8084")
+        # Clean URL - remove trailing slashes and /wp-json if present
+        self.wordpress_url = self.wordpress_url.rstrip('/').replace('/wp-json', '')
+        
         self.auth_method = auth_method or os.getenv("WP_AUTH_METHOD", "basic")
         self.username = username or os.getenv("WP_USERNAME", "admin")
-        self.password = password or os.getenv("WP_PASSWORD", os.getenv("WP_APP_PASSWORD", "admin123"))
+        
+        # Handle password - WordPress Application Passwords require spaces to be preserved
+        password = password or os.getenv("WP_PASSWORD", os.getenv("WP_APP_PASSWORD", "admin123"))
+        # Keep spaces in Application Passwords - they are required for proper authentication
+        self.password = password if password else "admin123"
+        
         self.verify_ssl = verify_ssl if verify_ssl is not None else os.getenv("WP_VERIFY_SSL", "false").lower() == "true"
         
         # Determine if we're in local or production
@@ -48,11 +56,11 @@ class WordPressPublisher:
         
         if self.auth_method == "basic" or self.is_local:
             # Basic Authentication for local development
-            credentials = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
+            credentials = base64.b64encode(f"{self.username}:{self.password}".encode('utf-8')).decode('ascii')
             headers["Authorization"] = f"Basic {credentials}"
         elif self.auth_method == "application":
             # Application Password for production
-            credentials = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
+            credentials = base64.b64encode(f"{self.username}:{self.password}".encode('utf-8')).decode('ascii')
             headers["Authorization"] = f"Basic {credentials}"
         
         return headers
@@ -60,14 +68,58 @@ class WordPressPublisher:
     async def test_connection(self) -> bool:
         """Test connection to WordPress API"""
         try:
-            async with httpx.AsyncClient(verify=self.verify_ssl) as client:
+            # First test if API is accessible
+            test_url = f"{self.api_base}/posts?per_page=1"
+            logger.info(f"Testing WordPress connection to: {test_url}")
+            
+            async with httpx.AsyncClient(verify=self.verify_ssl, timeout=10.0) as client:
+                # First try without auth to see if API is accessible
+                response = await client.get(test_url)
+                
+                if response.status_code != 200:
+                    logger.error(f"WordPress API not accessible at {test_url}")
+                    return False
+                
+                logger.info("WordPress API is accessible, testing authentication...")
+                
+                # Now test with authentication - use posts endpoint which requires auth
+                auth_test_url = f"{self.api_base}/posts?per_page=1"
                 response = await client.get(
-                    f"{self.api_base}/posts?per_page=1",
+                    auth_test_url,
                     headers=self._get_auth_headers()
                 )
-                return response.status_code == 200
+                
+                if response.status_code == 200:
+                    logger.info(f"WordPress connection and authentication successful to {self.wordpress_url}")
+                    return True
+                elif response.status_code == 401:
+                    logger.error(f"WordPress authentication failed (401) for {self.wordpress_url}")
+                    logger.error(f"Response: {response.text[:200]}")
+                    return False
+                elif response.status_code == 403:
+                    logger.error(f"WordPress access forbidden (403) for {self.wordpress_url}")
+                    logger.error(f"Response: {response.text[:200]}")
+                    return False
+                else:
+                    # If status is 500, it's likely an auth failure
+                    if response.status_code >= 500:
+                        logger.error(f"WordPress server error ({response.status_code}) - likely authentication failure")
+                        logger.error(f"This often happens when the Application Password is invalid or revoked")
+                        return False  # 500 errors with auth usually mean bad credentials
+                    else:
+                        logger.error(f"WordPress connection failed with status {response.status_code}")
+                        logger.error(f"Response: {response.text[:200]}")
+                        return False
+                    
+        except httpx.ConnectError as e:
+            logger.error(f"Cannot connect to WordPress at {self.wordpress_url}: {e}")
+            return False
+        except httpx.TimeoutException as e:
+            logger.error(f"WordPress connection timeout at {self.wordpress_url}: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Connection test failed: {e}")
+            logger.error(f"WordPress connection test failed: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
             return False
     
     async def create_post(

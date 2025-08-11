@@ -2,6 +2,39 @@
 
 {% block page_title %}Configuration Profiles{% endblock %}
 
+{% block styles %}
+<style>
+    /* Make modal more stable and prevent accidental closes */
+    .modal-dialog {
+        pointer-events: none;
+    }
+    .modal-content {
+        pointer-events: auto;
+    }
+    
+    /* Ensure modal backdrop is properly positioned */
+    .modal-backdrop {
+        z-index: 1040 !important;
+    }
+    .modal {
+        z-index: 1050 !important;
+    }
+    
+    /* Prevent modal from closing on form element interactions */
+    .modal-body input,
+    .modal-body select,
+    .modal-body textarea,
+    .modal-body button {
+        pointer-events: auto !important;
+    }
+    
+    /* Make sure the modal stays centered */
+    .modal-dialog-centered {
+        min-height: calc(100% - 1rem);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-12">
@@ -68,7 +101,7 @@
 </div>
 
 <!-- Create/Edit Profile Modal -->
-<div class="modal fade" id="profileModal" tabindex="-1">
+<div class="modal fade" id="profileModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
@@ -114,19 +147,58 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="wpUrl" class="form-label">WordPress URL *</label>
-                                <input type="url" class="form-control" id="wpUrl" required>
+                                <label for="wpUrl" class="form-label">
+                                    WordPress Site URL * 
+                                    <span class="badge bg-info">Base URL Only</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="url" class="form-control" id="wpUrl" required
+                                           placeholder="https://wp.servicedogus.org">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="validateWordPressUrl(document.getElementById('wpUrl').value)">
+                                        <i class="bi bi-search"></i> Check API
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    <div class="alert alert-info py-2 small mb-2">
+                                        <i class="bi bi-lightbulb"></i> <strong>What to enter:</strong><br>
+                                        ✅ <strong>Correct:</strong> <code>https://wp.servicedogus.org</code><br>
+                                        ❌ <strong>Wrong:</strong> <code>https://wp.servicedogus.org/wp-json/wp/v2</code><br>
+                                        ❌ <strong>Wrong:</strong> <code>https://wp.servicedogus.org/wp-admin</code><br>
+                                        <small class="text-muted">We automatically add /wp-json/wp/v2 for you!</small>
+                                    </div>
+                                    <small id="wpUrlStatus" class="d-block mt-1">Ready to check API availability</small>
+                                </div>
                             </div>
                             
                             <div class="mb-3">
-                                <label for="wpUsername" class="form-label">Username *</label>
-                                <input type="text" class="form-control" id="wpUsername" required>
+                                <label for="wpUsername" class="form-label">
+                                    WordPress Username *
+                                    <span class="badge bg-secondary">Your WordPress login</span>
+                                </label>
+                                <input type="text" class="form-control" id="wpUsername" required
+                                       placeholder="anthony">
+                                <div class="form-text">
+                                    <small>Your WordPress admin username (e.g., <code>anthony</code>)</small>
+                                </div>
                             </div>
                             
                             <div class="mb-3">
-                                <label for="wpPassword" class="form-label">Password/App Password *</label>
-                                <input type="password" class="form-control" id="wpPassword" required>
-                                <div class="form-text">Use Application Password for production sites</div>
+                                <label for="wpPassword" class="form-label">
+                                    Application Password * 
+                                    <span class="badge bg-warning text-dark">Not your login password!</span>
+                                </label>
+                                <input type="password" class="form-control" id="wpPassword" required 
+                                       placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
+                                <div class="form-text">
+                                    <div class="alert alert-warning py-2 small mb-2">
+                                        <i class="bi bi-key"></i> <strong>How to get your Application Password:</strong><br>
+                                        1. Go to WordPress Admin → Users → Your Profile<br>
+                                        2. Scroll to "Application Passwords" section<br>
+                                        3. Enter name: "Blog Poster" → Click "Add New"<br>
+                                        4. Copy the generated password (e.g., <code>1OCk J744 HOey mYvO 5Z3n 9D1c</code>)<br>
+                                        <small class="text-muted">✅ Spaces are optional - both formats work!</small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -315,12 +387,52 @@
 let currentProfiles = [];
 let currentEditingId = null;
 let currentDuplicatingId = null;
+let profileModal = null;
+let duplicateModal = null;
 
 // Load profiles on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modals once
+    profileModal = new bootstrap.Modal(document.getElementById('profileModal'), {
+        backdrop: 'static',
+        keyboard: false
+    });
+    
+    const duplicateModalEl = document.getElementById('duplicateModal');
+    if (duplicateModalEl) {
+        duplicateModal = new bootstrap.Modal(duplicateModalEl);
+    }
+    
     loadProfiles();
     loadActiveProfile();
     loadWebsites();
+    
+    // Prevent form submission from closing modal
+    document.getElementById('profileForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveProfile();
+    });
+    
+    // Prevent any clicks inside the modal from bubbling up
+    document.getElementById('profileModal').addEventListener('click', function(e) {
+        if (e.target.hasAttribute('data-bs-dismiss') && e.target.getAttribute('data-bs-dismiss') === 'modal') {
+            // Allow only the close button to dismiss
+            return;
+        }
+        e.stopPropagation();
+    });
+    
+    // Initialize tooltips with proper container to avoid modal conflicts
+    setTimeout(() => {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, {
+                container: 'body',
+                trigger: 'hover focus',
+                boundary: 'window'
+            })
+        });
+    }, 500);
 });
 
 async function loadProfiles() {
@@ -505,7 +617,12 @@ function showCreateModal() {
     document.getElementById('enableFactChecking').checked = true;
     document.getElementById('enableAutoPublish').checked = false;
     
-    new bootstrap.Modal(document.getElementById('profileModal')).show();
+    if (profileModal) {
+        profileModal.show();
+    } else {
+        // Fallback if modal not initialized
+        new bootstrap.Modal(document.getElementById('profileModal')).show();
+    }
 }
 
 async function editProfile(profileId) {
@@ -517,6 +634,7 @@ async function editProfile(profileId) {
             currentEditingId = profileId;
             const profile = data.profile;
             
+            // Fill in all the form fields BEFORE showing the modal
             document.getElementById('profileModalTitle').textContent = 'Edit Profile';
             document.getElementById('profileId').value = profile.id;
             document.getElementById('profileName').value = profile.name;
@@ -542,7 +660,19 @@ async function editProfile(profileId) {
             document.getElementById('enableFactChecking').checked = profile.agents.fact_checking;
             document.getElementById('enableAutoPublish').checked = profile.agents.auto_publish;
             
-            new bootstrap.Modal(document.getElementById('profileModal')).show();
+            // Show modal with a small delay to ensure DOM is ready
+            setTimeout(() => {
+                if (profileModal) {
+                    profileModal.show();
+                } else {
+                    // Reinitialize if needed
+                    profileModal = new bootstrap.Modal(document.getElementById('profileModal'), {
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+                    profileModal.show();
+                }
+            }, 100);
         } else {
             showError('Failed to load profile for editing');
         }
@@ -597,7 +727,11 @@ async function saveProfile() {
         
         if (data.success) {
             showSuccess(data.message);
-            bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
+            if (profileModal) {
+                profileModal.hide();
+            } else {
+                bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
+            }
             loadProfiles();
             loadActiveProfile();
             loadWebsites();
@@ -639,7 +773,11 @@ function duplicateProfile(profileId) {
     currentDuplicatingId = profileId;
     const profile = currentProfiles.find(p => p.id === profileId);
     document.getElementById('duplicateName').value = `${profile.name} (Copy)`;
-    new bootstrap.Modal(document.getElementById('duplicateModal')).show();
+    if (duplicateModal) {
+        duplicateModal.show();
+    } else {
+        new bootstrap.Modal(document.getElementById('duplicateModal')).show();
+    }
 }
 
 async function confirmDuplicate() {
@@ -659,7 +797,11 @@ async function confirmDuplicate() {
         
         if (data.success) {
             showSuccess(data.message);
-            bootstrap.Modal.getInstance(document.getElementById('duplicateModal')).hide();
+            if (duplicateModal) {
+                duplicateModal.hide();
+            } else {
+                bootstrap.Modal.getInstance(document.getElementById('duplicateModal')).hide();
+            }
             loadProfiles();
             loadWebsites();
         } else {
@@ -698,27 +840,56 @@ async function deleteProfile(profileId) {
     }
 }
 
-async function testConnection() {
-    // Get form values
-    const wpUrl = document.getElementById('wpUrl').value.trim();
-    const wpUsername = document.getElementById('wpUsername').value.trim();
-    const wpPassword = document.getElementById('wpPassword').value.trim();
-    const authMethod = document.getElementById('wpAuthMethod').value;
-    const verifySSL = document.getElementById('wpVerifySSL').checked;
+// Validate WordPress URL and check REST API availability
+async function validateWordPressUrl(url) {
+    if (!url) return;
     
-    // Validate required fields
-    if (!wpUrl || !wpUsername || !wpPassword) {
-        showError('Please fill in all required WordPress fields before testing');
-        return;
+    const statusEl = document.getElementById('wpUrlStatus');
+    statusEl.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking REST API...';
+    statusEl.className = 'text-info';
+    
+    try {
+        // Clean the URL - remove trailing slashes and /wp-json if accidentally added
+        url = url.replace(/\/+$/, '').replace(/\/wp-json.*$/, '');
+        
+        // Check if REST API is accessible
+        const response = await fetch(`/api/config/check-wp-api?url=${encodeURIComponent(url)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            statusEl.innerHTML = '<i class="bi bi-check-circle text-success"></i> REST API detected at ' + data.api_url;
+            statusEl.className = 'text-success';
+        } else {
+            statusEl.innerHTML = '<i class="bi bi-x-circle text-warning"></i> Could not detect REST API - will try standard endpoint';
+            statusEl.className = 'text-warning';
+        }
+    } catch (error) {
+        statusEl.innerHTML = '<i class="bi bi-info-circle"></i> Will attempt standard REST API endpoint';
+        statusEl.className = 'text-muted';
+    }
+}
+
+async function testWordPressConnection(wpUrl, wpUsername, wpPassword, authMethod, verifySSL, buttonSelector = null) {
+    // Clean the URL - remove trailing slashes and /wp-json if accidentally added
+    wpUrl = wpUrl.replace(/\/+$/, '').replace(/\/wp-json.*$/, '');
+    
+    // Clean the password - WordPress accepts with or without spaces
+    // Remove any spaces user might have copy-pasted
+    wpPassword = wpPassword.replace(/\s/g, '');
+    
+    // Get the button reference if provided
+    let button = null;
+    let originalText = '';
+    if (buttonSelector) {
+        button = document.querySelector(buttonSelector);
+        if (button) {
+            originalText = button.innerHTML;
+            button.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+            button.disabled = true;
+        }
     }
     
     try {
-        // Show loading state
-        const button = document.querySelector('button[onclick="testConnection()"]');
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
-        button.disabled = true;
-        
         const response = await fetch('/api/config/test-wp-connection', {
             method: 'POST',
             headers: {
@@ -733,40 +904,80 @@ async function testConnection() {
             })
         });
         
-        const data = await response.json();
+        // Check if response is ok
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        // Restore button
-        button.innerHTML = originalText;
-        button.disabled = false;
+        let data;
+        try {
+            data = await response.json();
+        } catch (parseError) {
+            console.error('Failed to parse response:', parseError);
+            throw new Error('Invalid response from server');
+        }
         
         if (data.success) {
             showSuccess('WordPress connection test successful!');
+            return true;
         } else {
-            showError('Connection test failed: ' + (data.message || data.error || 'Unknown error'));
+            const errorMsg = data.error || data.message || 'Connection failed';
+            showError('Connection test failed: ' + errorMsg);
+            console.error('Connection test failed:', data);
+            return false;
         }
     } catch (error) {
-        // Restore button on error
-        const button = document.querySelector('button[onclick="testConnection()"]');
-        button.innerHTML = '<i class="bi bi-wifi"></i> Test WordPress Connection';
-        button.disabled = false;
-        
-        showError('Connection test error: ' + error.message);
+        console.error('Connection test error:', error);
+        showError('Connection test error: ' + (error.message || 'Unknown error'));
+        return false;
+    } finally {
+        // Reset button state
+        if (button) {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
     }
+}
+
+async function testConnection() {
+    // Get form values
+    let wpUrl = document.getElementById('wpUrl').value.trim();
+    const wpUsername = document.getElementById('wpUsername').value.trim();
+    let wpPassword = document.getElementById('wpPassword').value.trim();
+    const authMethod = document.getElementById('wpAuthMethod').value;
+    const verifySSL = document.getElementById('wpVerifySSL').checked;
+    
+    // Validate required fields
+    if (!wpUrl || !wpUsername || !wpPassword) {
+        showError('Please fill in all required WordPress fields before testing');
+        return;
+    }
+    
+    await testWordPressConnection(wpUrl, wpUsername, wpPassword, authMethod, verifySSL, 'button[onclick="testConnection()"]');
 }
 
 async function testProfileConnection(profileId) {
     try {
-        const response = await fetch(`/api/config/profiles/${profileId}/test-connection`, {
-            method: 'POST'
-        });
+        // Get profile data first
+        const profileResponse = await fetch(`/api/config/profiles/${profileId}`);
+        const profileData = await profileResponse.json();
         
-        const data = await response.json();
-        
-        if (data.success) {
-            showSuccess('WordPress connection test completed successfully!');
-        } else {
-            showError('Connection test failed: ' + data.message);
+        if (!profileData.success) {
+            showError('Failed to load profile data');
+            return;
         }
+        
+        const profile = profileData.profile;
+        
+        // Use the shared connection test function
+        await testWordPressConnection(
+            profile.wordpress.url,
+            profile.wordpress.username,
+            profile.wordpress.password,
+            profile.wordpress.auth_method,
+            profile.wordpress.verify_ssl,
+            `button[onclick="testProfileConnection('${profileId}')"]`
+        );
     } catch (error) {
         showError('Connection test error: ' + error.message);
     }
@@ -836,6 +1047,11 @@ function showToast(message, type = 'info', icon = 'bi-info-circle') {
     toastContainer.lastElementChild.addEventListener('hidden.bs.toast', function() {
         this.remove();
     });
+}
+
+// Confirmation dialog function
+async function showConfirm(title, message) {
+    return confirm(`${title}\n\n${message}`);
 }
 </script>
 {% endblock %}
