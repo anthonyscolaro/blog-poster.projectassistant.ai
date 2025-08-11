@@ -45,11 +45,26 @@ Backups:
 ### Phase 3: Production Ready (Day 4-5)
 ```yaml
 Final Steps:
-  - Custom domain setup
-  - SSL certificate (automatic)
+  - DNS setup via Cloudflare API
+  - Custom domain: blogpost.projectassistant.ai
+  - SSL certificate (automatic via DO)
   - Rate limiting configured
   - Cost tracking enabled
   - Documentation updated
+```
+
+## DNS Configuration
+
+### Cloudflare Setup
+```yaml
+Domain: projectassistant.ai
+Subdomains:
+  - blogpost.projectassistant.ai → Digital Ocean App Platform
+  - api.blogpost.projectassistant.ai → API endpoint (optional)
+  
+Cloudflare Credentials (in .env.local):
+  CLOUDFLARE_API_TOKEN: "fXs1g6GiML2PwSARgU6YHKtTlN41ELhhuIlDboab"
+  CLOUDFLARE_ZONE_ID: "2f922ade64e8b27117734e8ec0d112b6"
 ```
 
 ## Configuration
@@ -58,6 +73,10 @@ Final Steps:
 ```yaml
 name: blog-poster
 region: nyc
+domains:
+  - domain: blogpost.projectassistant.ai
+    type: PRIMARY
+    zone: projectassistant.ai
 services:
   - name: api
     github:
@@ -72,6 +91,8 @@ services:
       http_path: /health
       initial_delay_seconds: 10
       period_seconds: 30
+    routes:
+      - path: /
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME
@@ -114,6 +135,22 @@ MAX_ARTICLES_PER_USER=100
 # Features
 ENABLE_USER_REGISTRATION=true
 ENABLE_RATE_LIMITING=true
+```
+
+## DNS Setup Commands
+
+```bash
+# Initial DNS setup (creates placeholder CNAME records)
+python scripts/setup_cloudflare_dns.py
+
+# After deploying to Digital Ocean, get your app URL:
+doctl apps get $APP_ID --format "DefaultIngress"
+
+# Update DNS to point to your DO app (example):
+python scripts/setup_cloudflare_dns.py --ip your-app.ondigitalocean.app
+
+# Or manually update in Cloudflare dashboard:
+# blogpost.projectassistant.ai → CNAME → your-app.ondigitalocean.app
 ```
 
 ## Deployment Commands
