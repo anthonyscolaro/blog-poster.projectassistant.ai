@@ -65,8 +65,11 @@ class WebScraper:
         bright_data_api_key: Optional[str] = None,
         timeout: int = 30
     ):
-        self.jina_api_key = jina_api_key or os.getenv("JINA_API_KEY")
-        self.bright_data_api_key = bright_data_api_key or os.getenv("BRIGHT_DATA_API_KEY")
+        # Try to get API keys from secure storage or environment
+        from src.utils.api_key_utils import get_jina_api_key, get_bright_data_api_key
+        
+        self.jina_api_key = jina_api_key or get_jina_api_key()
+        self.bright_data_api_key = bright_data_api_key or get_bright_data_api_key()
         self.timeout = timeout
         self.client = httpx.AsyncClient(timeout=timeout)
         

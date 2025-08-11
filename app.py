@@ -1677,6 +1677,83 @@ async def clear_pipeline_logs(pipeline_id: str):
     }
 
 # ------------------------------
+# Profile Settings & API Keys Management
+# ------------------------------
+from src.services.api_keys_manager import get_api_keys_manager
+
+@app.get("/profile-settings", response_class=HTMLResponse)
+async def profile_settings_page(request: Request):
+    """Profile settings page for managing API keys"""
+    try:
+        api_keys_manager = get_api_keys_manager()
+        masked_keys = api_keys_manager.get_all_keys()
+        
+        context = {
+            "request": request,
+            "title": "Profile Settings",
+            "api_keys": masked_keys
+        }
+        
+        return templates.TemplateResponse("profile-settings.html", context)
+    except Exception as e:
+        logger.error(f"Profile settings error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.post("/api/profile/api-keys")
+async def save_api_keys(keys: Dict[str, Optional[str]]):
+    """Save API keys securely"""
+    try:
+        api_keys_manager = get_api_keys_manager()
+        
+        # Only update non-null values
+        update_dict = {k: v for k, v in keys.items() if v}
+        
+        if update_dict:
+            api_keys_manager.update_keys(**update_dict)
+        
+        return {
+            "success": True,
+            "message": "API keys saved successfully",
+            "updated_keys": list(update_dict.keys())
+        }
+    except Exception as e:
+        logger.error(f"Failed to save API keys: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/profile/test-key/{key_name}")
+async def test_api_key(key_name: str):
+    """Test if an API key is valid"""
+    try:
+        api_keys_manager = get_api_keys_manager()
+        result = api_keys_manager.test_api_key(key_name)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to test API key {key_name}: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.delete("/api/profile/clear-key/{key_name}")
+async def clear_api_key(key_name: str):
+    """Clear a specific API key"""
+    try:
+        api_keys_manager = get_api_keys_manager()
+        api_keys_manager.clear_key(key_name)
+        return {"success": True, "message": f"{key_name} cleared successfully"}
+    except Exception as e:
+        logger.error(f"Failed to clear API key {key_name}: {e}")
+        return {"success": False, "message": str(e)}
+
+@app.get("/api/profile/export-env")
+async def export_env_keys():
+    """Export API keys in .env format"""
+    try:
+        api_keys_manager = get_api_keys_manager()
+        env_content = api_keys_manager.export_for_env()
+        return {"success": True, "content": env_content}
+    except Exception as e:
+        logger.error(f"Failed to export env keys: {e}")
+        return {"success": False, "message": str(e)}
+
+# ------------------------------
 # Cleanup on shutdown
 # ------------------------------
 @app.on_event("shutdown")
