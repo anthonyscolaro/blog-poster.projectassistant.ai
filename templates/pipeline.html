@@ -803,6 +803,11 @@ async function deletePipeline(pipelineId) {
 }
 
 async function viewPipelineDetails(pipelineId) {
+    // Navigate to the pipeline details page
+    window.location.href = `/pipeline/${pipelineId}/view`;
+}
+
+async function viewPipelineLogs(pipelineId) {
     // Show log viewer instead of modal
     connectToLogs(pipelineId);
     

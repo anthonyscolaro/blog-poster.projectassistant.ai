@@ -984,6 +984,63 @@ async def get_pipeline_costs():
     manager = get_orchestration_manager()
     return manager.get_cost_summary()
 
+@app.get("/pipeline/{pipeline_id}/details")
+async def get_pipeline_details(pipeline_id: str):
+    """Get detailed information about a specific pipeline run"""
+    manager = get_orchestration_manager()
+    
+    # Find the pipeline in history
+    for result in manager.pipeline_history:
+        # Check if this pipeline matches the ID
+        result_id = f"pipeline_{result.started_at.strftime('%Y%m%d%H%M%S')}"
+        if result_id == pipeline_id or pipeline_id.startswith(result_id):
+            return {
+                "pipeline_id": pipeline_id,
+                "status": result.status.value,
+                "started_at": result.started_at.isoformat(),
+                "completed_at": result.completed_at.isoformat() if result.completed_at else None,
+                "execution_time": result.execution_time,
+                "total_cost": result.total_cost,
+                "primary_keyword": result.topic_recommendation.primary_keyword if result.topic_recommendation else None,
+                "article": result.article.dict() if result.article else None,
+                "topic_recommendation": result.topic_recommendation.dict() if result.topic_recommendation else None,
+                "competitor_insights": result.competitor_insights if result.competitor_insights else None,
+                "fact_check_report": result.fact_check_report.dict() if result.fact_check_report else None,
+                "wordpress_result": result.wordpress_result if result.wordpress_result else None,
+                "errors": result.errors,
+                "warnings": result.warnings
+            }
+    
+    # Check if it's a saved article file
+    import glob
+    import json as json_lib
+    article_files = glob.glob(f"data/articles/*{pipeline_id}*.json")
+    if article_files:
+        with open(article_files[0], 'r') as f:
+            article_data = json_lib.load(f)
+            return {
+                "pipeline_id": pipeline_id,
+                "status": "completed",
+                "started_at": article_data.get('generated_at'),
+                "completed_at": article_data.get('generated_at'),
+                "execution_time": 0,
+                "total_cost": article_data.get('cost_tracking', {}).get('cost', 0),
+                "primary_keyword": article_data.get('primary_keyword'),
+                "article": article_data,
+                "topic_recommendation": {
+                    "title": article_data.get('title'),
+                    "primary_keyword": article_data.get('primary_keyword'),
+                    "secondary_keywords": article_data.get('secondary_keywords', [])
+                },
+                "competitor_insights": None,
+                "fact_check_report": None,
+                "wordpress_result": None,
+                "errors": [],
+                "warnings": []
+            }
+    
+    raise HTTPException(404, f"Pipeline {pipeline_id} not found")
+
 # ------------------------------
 # Vector Search Endpoints
 # ------------------------------
@@ -1264,6 +1321,47 @@ async def pipeline_dashboard(request: Request):
         return templates.TemplateResponse("pipeline.html", context)
     except Exception as e:
         logger.error(f"Pipeline dashboard error: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
+
+@app.get("/pipeline/{pipeline_id}/view", response_class=HTMLResponse)
+async def view_pipeline_details(request: Request, pipeline_id: str):
+    """View detailed pipeline execution results"""
+    try:
+        # Get pipeline details from API
+        details = await get_pipeline_details(pipeline_id)
+        
+        # Format the data for the template
+        pipeline = {
+            "pipeline_id": details["pipeline_id"],
+            "status": details["status"],
+            "started_at": details["started_at"],
+            "completed_at": details["completed_at"],
+            "execution_time": details["execution_time"],
+            "total_cost": details["total_cost"],
+            "primary_keyword": details["primary_keyword"],
+            "article_id": pipeline_id,
+            "article": details.get("article"),
+            "topic_recommendation": details.get("topic_recommendation"),
+            "competitor_insights": details.get("competitor_insights"),
+            "fact_check_report": details.get("fact_check_report"),
+            "wordpress_result": details.get("wordpress_result"),
+            "errors": details.get("errors", []),
+            "warnings": details.get("warnings", [])
+        }
+        
+        context = {
+            "request": request,
+            "title": f"Pipeline Details - {pipeline_id}",
+            "pipeline": pipeline
+        }
+        
+        return templates.TemplateResponse("pipeline-details.html", context)
+    except HTTPException as e:
+        if e.status_code == 404:
+            return templates.TemplateResponse("error.html", {"request": request, "error": f"Pipeline {pipeline_id} not found"})
+        raise
+    except Exception as e:
+        logger.error(f"Pipeline details error: {e}")
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
 
 @app.get("/articles", response_class=HTMLResponse)

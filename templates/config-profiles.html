@@ -698,6 +698,62 @@ async function deleteProfile(profileId) {
     }
 }
 
+async function testConnection() {
+    // Get form values
+    const wpUrl = document.getElementById('wpUrl').value.trim();
+    const wpUsername = document.getElementById('wpUsername').value.trim();
+    const wpPassword = document.getElementById('wpPassword').value.trim();
+    const authMethod = document.getElementById('wpAuthMethod').value;
+    const verifySSL = document.getElementById('wpVerifySSL').checked;
+    
+    // Validate required fields
+    if (!wpUrl || !wpUsername || !wpPassword) {
+        showError('Please fill in all required WordPress fields before testing');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        const button = document.querySelector('button[onclick="testConnection()"]');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+        button.disabled = true;
+        
+        const response = await fetch('/api/config/test-wp-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                wp_url: wpUrl,
+                username: wpUsername,
+                password: wpPassword,
+                auth_method: authMethod,
+                verify_ssl: verifySSL
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Restore button
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
+        if (data.success) {
+            showSuccess('WordPress connection test successful!');
+        } else {
+            showError('Connection test failed: ' + (data.message || data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        // Restore button on error
+        const button = document.querySelector('button[onclick="testConnection()"]');
+        button.innerHTML = '<i class="bi bi-wifi"></i> Test WordPress Connection';
+        button.disabled = false;
+        
+        showError('Connection test error: ' + error.message);
+    }
+}
+
 async function testProfileConnection(profileId) {
     try {
         const response = await fetch(`/api/config/profiles/${profileId}/test-connection`, {
@@ -736,7 +792,50 @@ async function createDefaults() {
     }
 }
 
-// showError and showSuccess are now provided by base.html
-// Remove local functions to avoid conflicts
+// Toast notification functions
+function showSuccess(message) {
+    showToast(message, 'success', 'bi-check-circle-fill');
+}
+
+function showError(message) {
+    showToast(message, 'danger', 'bi-x-circle-fill');
+}
+
+function showToast(message, type = 'info', icon = 'bi-info-circle') {
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${icon} me-2"></i> ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Add toast to container
+    const toastElement = document.createElement('div');
+    toastElement.innerHTML = toastHtml;
+    toastContainer.appendChild(toastElement.firstElementChild);
+    
+    // Initialize and show toast
+    const toast = new bootstrap.Toast(toastContainer.lastElementChild);
+    toast.show();
+    
+    // Remove after hidden
+    toastContainer.lastElementChild.addEventListener('hidden.bs.toast', function() {
+        this.remove();
+    });
+}
 </script>
 {% endblock %}

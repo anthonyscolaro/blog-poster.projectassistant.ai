@@ -331,6 +331,60 @@ async def create_default_profiles():
         raise HTTPException(status_code=500, detail=f"Failed to create defaults: {str(e)}")
 
 
+class WordPressTestRequest(BaseModel):
+    """Request model for testing WordPress connection"""
+    wp_url: str
+    username: str
+    password: str
+    auth_method: str = "application"
+    verify_ssl: bool = True
+
+
+@router.post("/test-wp-connection")
+async def test_wordpress_connection_form(request: WordPressTestRequest):
+    """Test WordPress connection with form values"""
+    try:
+        # Import WordPress publisher to test connection
+        from ..services.wordpress_publisher import WordPressPublisher
+        
+        # Create publisher with form settings
+        publisher = WordPressPublisher(
+            wp_url=request.wp_url,
+            username=request.username,
+            password=request.password,
+            auth_method=request.auth_method,
+            verify_ssl=request.verify_ssl
+        )
+        
+        # Test actual connection
+        connection_result = await publisher.test_connection()
+        
+        if connection_result:
+            return JSONResponse({
+                "success": True,
+                "message": f"WordPress connection successful to {request.wp_url}",
+                "details": {
+                    "url": request.wp_url,
+                    "username": request.username,
+                    "auth_method": request.auth_method,
+                    "ssl_verify": request.verify_ssl
+                }
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "message": f"WordPress connection failed to {request.wp_url}",
+                "error": "Unable to connect to WordPress API"
+            })
+    
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": f"Connection test failed",
+            "error": str(e)
+        })
+
+
 @router.post("/profiles/{profile_id}/test-connection")
 async def test_wordpress_connection(profile_id: str):
     """Test WordPress connection for a specific profile"""
@@ -353,18 +407,26 @@ async def test_wordpress_connection(profile_id: str):
             verify_ssl=profile.wordpress.verify_ssl
         )
         
-        # Test connection (this would need a test method in WordPressPublisher)
-        # For now, just return success
-        return JSONResponse({
-            "success": True,
-            "message": f"WordPress connection test completed for {profile.wordpress.url}",
-            "details": {
-                "url": profile.wordpress.url,
-                "username": profile.wordpress.username,
-                "auth_method": profile.wordpress.auth_method,
-                "ssl_verify": profile.wordpress.verify_ssl
-            }
-        })
+        # Test actual connection
+        connection_result = await publisher.test_connection()
+        
+        if connection_result:
+            return JSONResponse({
+                "success": True,
+                "message": f"WordPress connection successful for {profile.wordpress.url}",
+                "details": {
+                    "url": profile.wordpress.url,
+                    "username": profile.wordpress.username,
+                    "auth_method": profile.wordpress.auth_method,
+                    "ssl_verify": profile.wordpress.verify_ssl
+                }
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "message": f"WordPress connection failed for {profile.wordpress.url}",
+                "error": "Unable to connect to WordPress API"
+            })
     
     except HTTPException:
         raise
