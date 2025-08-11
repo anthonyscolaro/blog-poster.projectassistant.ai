@@ -23,8 +23,8 @@ from agents.competitor_monitoring_agent import CompetitorMonitoringAgent, Compet
 from agents.topic_analysis_agent import TopicAnalysisAgent, TopicRecommendation
 from agents.article_generation_agent import ArticleGenerationAgent, GeneratedArticle, SEORequirements
 from agents.legal_fact_checker_agent import LegalFactCheckerAgent, LegalFactCheckReport
-from wordpress_publisher import WordPressPublisher
-from vector_search import VectorSearchManager
+from .wordpress_publisher import WordPressPublisher
+from .vector_search import VectorSearchManager
 
 logger = logging.getLogger(__name__)
 
@@ -583,17 +583,27 @@ class OrchestrationManager:
         """Get pipeline execution history for dashboard"""
         history = []
         
-        for result in self.pipeline_history[-20:]:  # Last 20 runs
+        for i, result in enumerate(self.pipeline_history[-20:]):  # Last 20 runs
+            # Generate a unique pipeline ID based on index and timestamp
+            pipeline_id = f"pipeline_{result.started_at.strftime('%Y%m%d%H%M%S')}_{i}"
+            
+            # Extract the primary keyword from topic recommendation or use a default
+            primary_keyword = "Unknown"
+            if result.topic_recommendation and hasattr(result.topic_recommendation, 'primary_keyword'):
+                primary_keyword = result.topic_recommendation.primary_keyword
+            elif result.topic_recommendation and hasattr(result.topic_recommendation, 'topic'):
+                primary_keyword = result.topic_recommendation.topic
+            
             history.append({
-                "pipeline_id": result.pipeline_id,
-                "primary_keyword": result.topic,
+                "pipeline_id": pipeline_id,
+                "primary_keyword": primary_keyword,
                 "started_at": result.started_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "time_ago": self._time_ago(result.started_at),
-                "duration": result.execution_time.total_seconds() if result.execution_time else None,
+                "duration": result.execution_time if result.execution_time else None,
                 "status": result.status.value,
                 "cost": result.total_cost,
-                "article_generated": bool(result.generated_article),
-                "article_id": result.pipeline_id if result.generated_article else None
+                "article_generated": bool(result.article),
+                "article_id": pipeline_id if result.article else None
             })
         
         return list(reversed(history))  # Most recent first

@@ -22,9 +22,9 @@ from agents.article_generation_agent import ArticleGenerationAgent, SEORequireme
 from agents.competitor_monitoring_agent import CompetitorMonitoringAgent
 from agents.topic_analysis_agent import TopicAnalysisAgent
 from agents.legal_fact_checker_agent import LegalFactCheckerAgent
-from wordpress_publisher import WordPressPublisher
-from vector_search import VectorSearchManager
-from orchestration_manager import OrchestrationManager
+from src.services.wordpress_publisher import WordPressPublisher
+from src.services.vector_search import VectorSearchManager
+from src.services.orchestration_manager import OrchestrationManager
 
 
 @pytest.fixture(scope="session")

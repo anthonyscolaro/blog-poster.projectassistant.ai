@@ -12,7 +12,7 @@ import json
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from wordpress_publisher import WordPressPublisher
+from src.services.wordpress_publisher import WordPressPublisher
 
 
 class TestWordPressPublisher:

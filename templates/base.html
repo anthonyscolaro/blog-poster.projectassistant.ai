@@ -25,17 +25,21 @@
             --text-secondary: #6c757d;
             --border-color: #dee2e6;
             --card-shadow: 0 2px 10px rgba(0,0,0,0.08);
-            --sidebar-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --sidebar-bg: linear-gradient(135deg, #5b67ca 0%, #7e3af2 100%);
+            --accent-primary: #5b67ca;
+            --accent-secondary: #7e3af2;
         }
         
         [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --text-primary: #ffffff;
-            --text-secondary: #b0b0b0;
-            --border-color: #404040;
-            --card-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            --sidebar-bg: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --border-color: #27272a;
+            --card-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            --sidebar-bg: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
         }
         
         body {
@@ -73,10 +77,14 @@
             border: 1px solid var(--border-color);
             border-radius: 12px;
             box-shadow: var(--card-shadow);
-            transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+            transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
         .card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(91, 103, 202, 0.15);
+        }
+        [data-theme="dark"] .card:hover {
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
         }
         .status-badge {
             padding: 8px 16px;
@@ -131,20 +139,20 @@
         
         /* Dark theme adjustments */
         [data-theme="dark"] .status-healthy { 
-            background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%); 
-            color: #d1ecf1; 
-            border: 1px solid #28a745;
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%); 
+            color: #ecfdf5; 
+            border: 1px solid #10b981;
         }
         [data-theme="dark"] .status-warning { 
-            background: linear-gradient(135deg, #d39e00 0%, #ffc107 100%); 
-            color: #212529; 
-            border: 1px solid #ffc107;
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); 
+            color: #fef3c7; 
+            border: 1px solid #f59e0b;
         }
         [data-theme="dark"] .status-error,
         [data-theme="dark"] .status-down { 
-            background: linear-gradient(135deg, #c82333 0%, #dc3545 100%); 
-            color: #f8d7da; 
-            border: 1px solid #dc3545;
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); 
+            color: #fee2e2; 
+            border: 1px solid #ef4444;
         }
         
         /* Animated status indicators */
@@ -196,10 +204,10 @@
         .metric-value {
             font-size: 2.5rem;
             font-weight: bold;
-            color: #495057;
+            color: var(--text-primary);
         }
         .metric-label {
-            color: #6c757d;
+            color: var(--text-secondary);
             font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -320,6 +328,30 @@
             margin-bottom: 10px;
             border-radius: 8px;
         }
+        
+        /* Custom button styles */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            border: none;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(91, 103, 202, 0.3);
+        }
+        [data-theme="dark"] .btn-primary:hover {
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        .btn-outline-primary {
+            color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+        .btn-outline-primary:hover {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            border-color: var(--accent-primary);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -328,8 +360,11 @@
             <!-- Sidebar -->
             <nav class="col-md-2 d-md-block sidebar p-3">
                 <div class="position-sticky">
-                    <h4 class="text-white mb-4">
-                        <i class="bi bi-robot"></i> Blog Poster
+                    <h4 class="text-white mb-4 d-flex align-items-center">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25 p-2 me-2">
+                            <i class="bi bi-robot" style="font-size: 1.2rem;"></i>
+                        </span>
+                        <span>Blog Poster</span>
                     </h4>
                     
                     <ul class="nav flex-column">
@@ -361,6 +396,11 @@
                         
                         <hr class="text-white-50 my-3">
                         
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'features' in request.url.path %}active{% endif %}" href="/features">
+                                <i class="bi bi-stars"></i> Features
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link {% if 'instructions' in request.url.path %}active{% endif %}" href="/instructions">
                                 <i class="bi bi-book"></i> Instructions

@@ -11,7 +11,7 @@ import os
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from vector_search import VectorSearchManager, SearchResult
+from src.services.vector_search import VectorSearchManager, SearchResult
 
 
 class TestVectorSearchManager:
