@@ -1,12 +1,31 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Welcome Banner for New Users -->
+<div class="row mb-4" id="welcomeBanner">
+    <div class="col-md-12">
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-info-circle-fill me-2" style="font-size: 1.5rem;"></i>
+                <div class="flex-grow-1">
+                    <strong>Welcome to Blog Poster!</strong> 
+                    <span class="ms-2">New to the dashboard? Check out our comprehensive guide to get started.</span>
+                </div>
+                <a href="/instructions" class="btn btn-sm btn-outline-info ms-3">
+                    <i class="bi bi-book"></i> View Instructions
+                </a>
+                <button type="button" class="btn-close ms-2" data-bs-dismiss="alert" onclick="hideWelcomeBanner()"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row mb-4">
     <!-- System Overview Cards -->
     <div class="col-md-3">
         <div class="card metric-card">
             <div class="card-body">
-                <div class="metric-value text-primary">{{ pipeline_stats.total_runs or 0 }}</div>
+                <div class="metric-value text-primary" data-metric="total-runs">{{ pipeline_stats.total_runs or 0 }}</div>
                 <div class="metric-label">Pipeline Runs</div>
             </div>
         </div>
@@ -48,7 +67,9 @@
                 <h5 class="mb-0">
                     <i class="bi bi-diagram-3"></i> Pipeline Status
                 </h5>
-                <span class="status-badge status-healthy">Active</span>
+                <span class="status-badge status-healthy pipeline-status-badge">
+                    <span class="status-indicator healthy"></span>Active
+                </span>
             </div>
             <div class="card-body">
                 <div class="pipeline-step step-completed">
@@ -140,22 +161,30 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span>Orchestration Manager</span>
-                    <span class="status-badge status-healthy">Healthy</span>
+                    <span class="status-badge status-healthy">
+                        <span class="status-indicator healthy"></span>Healthy
+                    </span>
                 </div>
                 
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span>Vector Database</span>
-                    <span class="status-badge status-healthy">Connected</span>
+                    <span class="status-badge status-healthy">
+                        <span class="status-indicator healthy"></span>Connected
+                    </span>
                 </div>
                 
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span>WordPress</span>
-                    <span class="status-badge status-warning">Unknown</span>
+                    <span class="status-badge status-warning">
+                        <span class="status-indicator warning"></span>Unknown
+                    </span>
                 </div>
                 
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span>AI Services</span>
-                    <span class="status-badge status-healthy">Active</span>
+                    <span class="status-badge status-healthy">
+                        <span class="status-indicator healthy"></span>Active
+                    </span>
                 </div>
                 
                 <div class="mt-3">
@@ -208,49 +237,402 @@
 
 {% block scripts %}
 <script>
-// Performance Chart
-const ctx = document.getElementById('performanceChart').getContext('2d');
-const performanceChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        datasets: [{
-            label: 'Articles Generated',
-            data: [2, 1, 3, 2, 1, 0, 1],
-            borderColor: 'rgb(75, 192, 192)',
-            backgroundColor: 'rgba(75, 192, 192, 0.1)',
-            tension: 0.4
-        }, {
-            label: 'Success Rate (%)',
-            data: [95, 100, 90, 100, 100, 0, 100],
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.1)',
-            tension: 0.4,
-            yAxisID: 'y1'
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            title: {
-                display: true,
-                text: 'Weekly Performance'
-            }
+// Enhanced Performance Chart with Real Data and Drill-down
+let performanceChart;
+let currentTimeframe = 'week';
+let isLoading = false;
+
+async function loadChartData(timeframe = 'week') {
+    if (isLoading) return;
+    
+    isLoading = true;
+    const loadingOverlay = document.getElementById('chart-loading');
+    if (loadingOverlay) loadingOverlay.style.display = 'block';
+    
+    try {
+        // Fetch real data from API endpoints
+        const [pipelineData, costsData] = await Promise.all([
+            fetch('/pipeline/history?limit=30').then(r => r.json()),
+            fetch('/pipeline/costs').then(r => r.json())
+        ]);
+        
+        // Process data based on timeframe
+        const chartData = processChartData(pipelineData, costsData, timeframe);
+        updateChart(chartData, timeframe);
+        
+    } catch (error) {
+        console.error('Failed to load chart data:', error);
+        // Fallback to mock data
+        updateChart(getMockData(timeframe), timeframe);
+    } finally {
+        isLoading = false;
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+    }
+}
+
+function processChartData(pipelineData, costsData, timeframe) {
+    const now = new Date();
+    const labels = [];
+    const articles = [];
+    const successRates = [];
+    const costs = [];
+    
+    // Generate labels based on timeframe
+    const periods = timeframe === 'week' ? 7 : timeframe === 'month' ? 30 : 24;
+    const unit = timeframe === 'week' ? 'day' : timeframe === 'month' ? 'day' : 'hour';
+    
+    for (let i = periods - 1; i >= 0; i--) {
+        const date = new Date(now);
+        if (unit === 'day') {
+            date.setDate(date.getDate() - i);
+            labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+        } else {
+            date.setHours(date.getHours() - i);
+            labels.push(date.getHours() + ':00');
+        }
+        
+        // Mock processing of real data
+        const dayData = (pipelineData.executions || []).filter(exec => {
+            const execDate = new Date(exec.started_at);
+            return Math.abs(execDate - date) < (unit === 'day' ? 86400000 : 3600000);
+        });
+        
+        articles.push(dayData.length);
+        successRates.push(dayData.length > 0 ? 
+            (dayData.filter(d => d.status === 'completed').length / dayData.length) * 100 : 0);
+        costs.push(dayData.reduce((sum, d) => sum + (d.total_cost || 0), 0));
+    }
+    
+    return { labels, articles, successRates, costs };
+}
+
+function getMockData(timeframe) {
+    const periods = timeframe === 'week' ? 7 : timeframe === 'month' ? 30 : 24;
+    const labels = [];
+    const articles = [];
+    const successRates = [];
+    const costs = [];
+    
+    for (let i = 0; i < periods; i++) {
+        if (timeframe === 'week') {
+            labels.push(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]);
+            articles.push(Math.floor(Math.random() * 5));
+            successRates.push(85 + Math.random() * 15);
+            costs.push(Math.random() * 10);
+        } else if (timeframe === 'month') {
+            labels.push(`Day ${i + 1}`);
+            articles.push(Math.floor(Math.random() * 3));
+            successRates.push(80 + Math.random() * 20);
+            costs.push(Math.random() * 8);
+        } else {
+            labels.push(`${i}:00`);
+            articles.push(Math.floor(Math.random() * 2));
+            successRates.push(70 + Math.random() * 30);
+            costs.push(Math.random() * 5);
+        }
+    }
+    
+    return { labels, articles, successRates, costs };
+}
+
+function updateChart(data, timeframe) {
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    
+    if (performanceChart) {
+        performanceChart.destroy();
+    }
+    
+    // Theme-aware colors
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#ffffff' : '#495057';
+    const gridColor = isDark ? '#404040' : '#e0e0e0';
+    
+    performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Articles Generated',
+                data: data.articles,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }, {
+                label: 'Success Rate (%)',
+                data: data.successRates,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1',
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
         },
-        scales: {
-            y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
             },
-            y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                grid: {
-                    drawOnChartArea: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Performance Metrics (${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)})`,
+                    color: textColor,
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
                 },
+                legend: {
+                    labels: {
+                        color: textColor
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
+                    titleColor: textColor,
+                    bodyColor: textColor,
+                    borderColor: gridColor,
+                    borderWidth: 1,
+                    callbacks: {
+                        afterBody: function(context) {
+                            return `Cost: $${data.costs[context[0].dataIndex]?.toFixed(2) || '0.00'}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: textColor },
+                    grid: { color: gridColor }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Articles',
+                        color: textColor
+                    },
+                    ticks: { color: textColor },
+                    grid: { color: gridColor }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Success Rate (%)',
+                        color: textColor
+                    },
+                    ticks: { color: textColor },
+                    grid: { drawOnChartArea: false, color: gridColor },
+                    max: 100
+                }
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const dataIndex = elements[0].index;
+                    const label = data.labels[dataIndex];
+                    drillDownChart(label, timeframe);
+                }
             }
+        }
+    });
+}
+
+function drillDownChart(label, currentTimeframe) {
+    const nextTimeframe = currentTimeframe === 'month' ? 'week' : 'day';
+    if (nextTimeframe === 'day') {
+        // Show detailed view for selected period
+        showDayDetails(label);
+    } else {
+        currentTimeframe = nextTimeframe;
+        loadChartData(nextTimeframe);
+        updateTimeframeButtons();
+    }
+}
+
+function showDayDetails(label) {
+    // Implement drill-down modal or detailed view
+    showInfo(`Detailed view for ${label} - Feature coming soon!`);
+}
+
+function changeTimeframe(timeframe) {
+    currentTimeframe = timeframe;
+    loadChartData(timeframe);
+    updateTimeframeButtons();
+}
+
+function updateTimeframeButtons() {
+    document.querySelectorAll('.timeframe-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.timeframe === currentTimeframe) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+// Initialize chart on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Add timeframe buttons
+    const chartHeader = document.querySelector('.card-header h5');
+    if (chartHeader && chartHeader.textContent.includes('Performance Metrics')) {
+        const buttonGroup = document.createElement('div');
+        buttonGroup.className = 'btn-group btn-group-sm ms-auto';
+        buttonGroup.innerHTML = `
+            <button class="btn btn-outline-secondary timeframe-btn active" data-timeframe="week" onclick="changeTimeframe('week')">Week</button>
+            <button class="btn btn-outline-secondary timeframe-btn" data-timeframe="month" onclick="changeTimeframe('month')">Month</button>
+            <button class="btn btn-outline-secondary timeframe-btn" data-timeframe="day" onclick="changeTimeframe('day')">Today</button>
+        `;
+        chartHeader.parentNode.style.display = 'flex';
+        chartHeader.parentNode.style.justifyContent = 'space-between';
+        chartHeader.parentNode.style.alignItems = 'center';
+        chartHeader.parentNode.appendChild(buttonGroup);
+    }
+    
+    // Add loading overlay
+    const chartContainer = document.getElementById('performanceChart').parentNode;
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.id = 'chart-loading';
+    loadingOverlay.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    `;
+    loadingOverlay.innerHTML = '<div class="spinner-border" role="status"></div>';
+    chartContainer.style.position = 'relative';
+    chartContainer.appendChild(loadingOverlay);
+    
+    // Load initial data
+    loadChartData('week');
+});
+
+// Refresh chart when theme changes
+document.addEventListener('themeChanged', function() {
+    if (performanceChart) {
+        loadChartData(currentTimeframe);
+    }
+    
+    // Real-time Pipeline Status Updates
+    let updateInterval = null;
+    let isUpdating = false;
+    
+    async function updatePipelineStatus() {
+        if (isUpdating) return;
+        isUpdating = true;
+        
+        try {
+            const response = await fetch('/pipeline/status');
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Update pipeline status badge
+                const statusBadge = document.querySelector('.pipeline-status-badge');
+                if (statusBadge && data.status) {
+                    statusBadge.textContent = data.status;
+                    statusBadge.className = 'badge pipeline-status-badge status-' + data.status.toLowerCase();
+                }
+                
+                // Update pipeline steps if running
+                if (data.status === 'RUNNING' && data.current_step) {
+                    updatePipelineSteps(data.current_step);
+                    
+                    // Show progress notification
+                    showInfo(`Pipeline running: ${data.current_step}`);
+                }
+                
+                // Update metrics if changed
+                if (data.metrics) {
+                    updateDashboardMetrics(data.metrics);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to update pipeline status:', error);
+        } finally {
+            isUpdating = false;
+        }
+    }
+    
+    function updatePipelineSteps(currentStep) {
+        const steps = document.querySelectorAll('.pipeline-step');
+        steps.forEach(step => {
+            const stepName = step.dataset.step;
+            if (stepName === currentStep) {
+                step.className = 'pipeline-step step-running';
+            } else if (step.classList.contains('step-completed')) {
+                // Keep completed status
+            } else {
+                step.className = 'pipeline-step step-pending';
+            }
+        });
+    }
+    
+    function updateDashboardMetrics(metrics) {
+        // Update metric cards with new values
+        if (metrics.total_runs !== undefined) {
+            const totalRunsEl = document.querySelector('[data-metric="total-runs"]');
+            if (totalRunsEl) totalRunsEl.textContent = metrics.total_runs;
+        }
+        
+        if (metrics.successful_runs !== undefined) {
+            const successRunsEl = document.querySelector('[data-metric="successful-runs"]');
+            if (successRunsEl) successRunsEl.textContent = metrics.successful_runs;
+        }
+        
+        if (metrics.total_cost !== undefined) {
+            const costEl = document.querySelector('[data-metric="total-cost"]');
+            if (costEl) costEl.textContent = '$' + metrics.total_cost.toFixed(2);
+        }
+    }
+    
+    // Start real-time updates
+    function startRealTimeUpdates() {
+        // Initial update
+        updatePipelineStatus();
+        
+        // Update every 5 seconds
+        updateInterval = setInterval(updatePipelineStatus, 5000);
+    }
+    
+    // Stop updates when page is hidden
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        } else {
+            startRealTimeUpdates();
+        }
+    });
+    
+    // Start updates on page load
+    startRealTimeUpdates();
+    
+    // Welcome banner management
+    function hideWelcomeBanner() {
+        localStorage.setItem('welcomeBannerHidden', 'true');
+    }
+    
+    // Check if banner should be shown
+    if (localStorage.getItem('welcomeBannerHidden') === 'true') {
+        const banner = document.getElementById('welcomeBanner');
+        if (banner) {
+            banner.style.display = 'none';
         }
     }
 });

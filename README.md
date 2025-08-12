@@ -1,530 +1,183 @@
-# Blog Poster - Multi-Agent AI Content Generation System
+# Supabase CLI
 
-A sophisticated **Multi-Agent AI Content Generation System** for automated SEO-optimized blog content creation and publishing. The system orchestrates five specialized AI agents to produce high-quality, legally accurate content about service dogs and ADA compliance.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-## 🎯 Overview
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-Blog Poster is an enterprise-grade content automation platform that combines:
-- **AI-Powered Content Generation** - Using Claude 3.5 Sonnet and GPT-4
-- **Vector Search Integration** - Semantic search with Qdrant for intelligent content management
-- **Automated SEO Optimization** - Built-in scoring and optimization
-- **Legal Fact Checking** - ADA compliance verification with proper citations
-- **WordPress Publishing** - Direct integration via WPGraphQL
-- **Cost Management** - Per-article and monthly budget tracking
+This repository contains all the functionality for Supabase CLI.
 
-### ✅ Implementation Status
-**Current Stage**: Production Ready with Vector Search
-- ✅ Multi-agent orchestration pipeline complete
-- ✅ Vector search integration (Qdrant) fully functional
-- ✅ WordPress publishing with SEO metadata
-- ✅ Article generation with Claude 3.5 Sonnet
-- ✅ Competitor monitoring with Jina AI
-- ✅ Topic analysis and SEO optimization
-- ✅ Legal fact checker with ADA verification
-- ✅ Cost tracking and budget management
-- ✅ Docker containerization complete
-- ✅ Comprehensive API endpoints
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-## 🏗️ Architecture
+## Getting started
 
-### Multi-Agent Pipeline
-```
-Competitor Monitoring → Topic Analysis → Article Generation → Legal Fact Checking → WordPress Publishing
-```
+### Install the CLI
 
-Each agent is specialized and works sequentially to ensure high-quality content production.
-
-### System Components
-- **Orchestration Manager** - Coordinates all agents and manages pipeline execution
-- **Vector Search (Qdrant)** - Semantic search, duplicate detection, internal linking
-- **LLM Integration** - Claude 3.5 Sonnet (primary), GPT-4 Turbo (fallback)
-- **WordPress Publisher** - WPGraphQL and REST API integration
-- **Cost Tracker** - Real-time API usage and cost monitoring
-
-### Port Allocation
-
-| Service | Port | Description |
-|---------|------|-------------|
-| API | 8088 | FastAPI REST endpoints |
-| Qdrant | 6333 | Vector database for semantic search |
-| PostgreSQL | 5433 | pgvector for embeddings |
-| Redis | 6384 | Job queue and caching |
-
-## 🚀 Quick Start
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-# 1. Clone and configure
-git clone https://github.com/anthonyscolaro/blog-poster.git
-cd blog-poster
-cp .env.example .env.local
-
-# 2. Edit .env.local with your credentials:
-#    - WordPress username/password
-#    - AI API keys (Anthropic or OpenAI)
-#    - Web scraping keys (optional)
-nano .env.local
-
-# 3. Start services
-docker compose up -d
-
-# 4. Verify health
-curl http://localhost:8088/health
-
-# 5. Test WordPress connection
-python examples/test_direct_publish.py
-
-# 6. Run complete workflow
-python examples/complete_workflow.py
+npm i supabase --save-dev
 ```
 
-For detailed setup instructions, see [docs/setup/QUICKSTART.md](docs/setup/QUICKSTART.md).
-
-## Configuration
-
-### Required Environment Variables
-
-```env
-# AI Provider (at least one required)
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-
-# Web Scraping
-JINA_API_KEY=jina_...
-
-# WordPress Connection
-WORDPRESS_URL=http://localhost:8084
-WORDPRESS_ADMIN_USER=admin
-WORDPRESS_ADMIN_PASSWORD=your-password
-```
-
-### WordPress Integration
-
-The service connects to your WordPress site via REST API.
-
-#### Local Development Setup
-1. Install **JSON Basic Authentication** plugin for local WordPress
-2. Configure permalinks (Settings → Permalinks → Custom: `/%category%/%postname%/`)
-3. Set credentials in `.env.local`:
-   ```env
-   WP_AUTH_METHOD=basic
-   WP_USERNAME=your-username
-   WP_APP_PASSWORD=your-password
-   ```
-
-#### Production Setup
-1. Use Application Passwords (requires HTTPS)
-2. Generate password in WordPress Admin → Users → Profile
-3. Update `.env.local` with production URL and credentials
-
-## Usage
-
-### Test WordPress Connection
+To install the beta release channel:
 
 ```bash
-# Check if WordPress is accessible
-curl http://localhost:8088/wordpress/test
-
-# Or use the Python test script
-python examples/test_wordpress_publish.py
+npm i supabase@beta --save-dev
 ```
 
-### Generate and Publish an Article
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
+
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+
+<details>
+  <summary><b>macOS</b></summary>
+
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
 
 ```bash
-# Complete workflow: Generate → Publish
-python examples/complete_workflow.py
-
-# Or use individual endpoints:
-
-# 1. Generate article with AI
-curl -X POST "http://localhost:8088/article/generate" \
-  -G --data-urlencode "topic=Service Dog Training Tips" \
-  --data-urlencode "primary_keyword=service dog training" \
-  --data-urlencode "min_words=800" \
-  --data-urlencode "max_words=1200"
-
-# 2. Publish to WordPress
-curl -X POST "http://localhost:8088/publish/wp" \
-  -G --data-urlencode "title=Your Article Title" \
-  --data-urlencode "content=Article content here..." \
-  --data-urlencode "status=draft"
+supabase bootstrap
 ```
 
-### Monitor Competitors
+Or using npx:
 
 ```bash
-# Scan competitor websites
-curl -X POST http://localhost:8088/competitors/scan
-
-# Get competitor insights
-curl http://localhost:8088/competitors/insights
+npx supabase bootstrap
 ```
 
-### Check SEO Compliance
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
 
-```bash
-curl -X POST http://localhost:8088/seo/lint \
-  -H "Content-Type: application/json" \
-  -d @examples/test-seo.json
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
 ```
-
-## Development
-
-### Available Commands
-
-```bash
-make format    # Format code with black/isort
-make lint      # Run linting checks
-make logs      # View API logs
-make restart   # Restart API container
-make shell     # Access container shell
-```
-
-### Testing Scripts
-
-```bash
-# Test WordPress publishing
-python examples/test_direct_publish.py
-
-# Complete workflow test
-python examples/complete_workflow.py
-
-# Quick credentials check
-./examples/quick_test.sh
-```
-
-### Hot Reload
-
-The API automatically reloads when you modify code. No container restart needed!
-
-## 🤖 Multi-Agent System
-
-### Complete Orchestration Pipeline (✅ Fully Integrated)
-The system orchestrates 5 specialized agents in sequence to create high-quality, SEO-optimized content:
-
-```bash
-# Run the complete pipeline
-curl -X POST http://localhost:8088/pipeline/run \
-  -H "Content-Type: application/json" \
-  -d '{
-    "primary_keyword": "autism service dog",
-    "min_words": 1500,
-    "perform_fact_checking": true,
-    "auto_publish": true
-  }'
-```
-
-### 1. Competitor Monitoring Agent (✅ Implemented)
-- Scrapes competitor blogs with Jina AI
-- Falls back to Bright Data for social media
-- Tracks trending topics and content gaps
-- Identifies opportunities from competitor analysis
-- **Status**: Fully functional
-
-### 2. Topic Analysis Agent (✅ Implemented)
-- **Keyword Research**: Analyzes search volume, difficulty, and trends
-- **Content Gap Detection**: Identifies missing topics vs competitors
-- **SEO Opportunity Scoring**: Prioritizes topics by potential (0-100 score)
-- **Smart Recommendations**: Generates titles, outlines, and word counts
-- **Market Insights**: Provides trending topics and high-opportunity keywords
-- **Content Type Selection**: Determines best format (guide, how-to, FAQ, etc.)
-- **Status**: Fully integrated with pipeline
-
-#### Topic Analysis Endpoints:
-```bash
-# Full topic analysis
-curl -X POST http://localhost:8088/topics/analyze \
-  -d "keywords=['service dog training', 'ADA requirements']"
-
-# Quick recommendations
-curl http://localhost:8088/topics/recommendations?count=5&focus=PTSD
-
-# Content gap identification
-curl http://localhost:8088/topics/gaps
-```
-
-### 3. Article Generation Agent (✅ Implemented)
-- Uses Claude 3.5 Sonnet (primary) with fallback to GPT-4 Turbo
-- Generates SEO-optimized content with keyword integration
-- Multi-step generation: outline → content → optimization
-- Tracks costs per article ($0.03-0.07 average)
-- Caches articles locally with JSON metadata
-- **Status**: Fully functional with valid API keys
-
-### 4. Legal Fact Checker Agent (✅ Implemented)
-- **ADA Compliance Verification**: 10+ core ADA regulations database
-- **Misconception Detection**: Identifies and corrects 10+ common myths
-- **Citation Validation**: Verifies legal citations (28 CFR patterns)
-- **Disclaimer Generation**: Adds required legal/medical disclaimers
-- **Correction System**: Automatically fixes incorrect claims with sources
-- **Confidence Scoring**: Rates accuracy of legal claims (0-100%)
-- **Research Integration**: Uses 25+ scraped ADA documents
-- **Status**: Fully functional with comprehensive fact database
-
-### 5. WordPress Publishing Agent (✅ Functional)
-- Publishes via REST API with Basic Auth or App Passwords
-- Creates draft or published posts with full metadata
-- Sets SEO metadata (title, description, slug)
-- Manages categories and tags
-- Returns edit links for immediate access
-- **Status**: Fully implemented and working
-
-## 📚 Documentation
-
-### Core Documentation
-- **[System Documentation](docs/SYSTEM_DOCUMENTATION.md)** - Complete system overview and architecture
-- **[API Reference](docs/API_REFERENCE.md)** - Detailed API endpoint documentation
-- **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)** - Production deployment instructions
-
-### Agent Documentation
-- [Multi-Agent Architecture](docs/SYSTEM_DOCUMENTATION.md#-multi-agent-system)
-- [Vector Search Integration](docs/SYSTEM_DOCUMENTATION.md#-vector-search-integration)
-- [Cost Management](docs/SYSTEM_DOCUMENTATION.md#-cost-management)
-
-### Quick Links
-- [Environment Configuration](docs/SYSTEM_DOCUMENTATION.md#-environment-configuration)
-- [Docker Services](docs/SYSTEM_DOCUMENTATION.md#-docker-services)
-- [Security Considerations](docs/SYSTEM_DOCUMENTATION.md#-security-considerations)
-- [Performance Optimization](docs/SYSTEM_DOCUMENTATION.md#-performance-optimization)
-
-## 🔍 Vector Search Features
-
-**✅ Successfully Integrated with Qdrant!**
-
-### Capabilities
-- **Document Indexing** - Automatic chunking and embedding of articles
-- **Semantic Search** - Find similar content using AI embeddings (OpenAI Ada-002)
-- **Duplicate Detection** - Prevent redundant content (90% similarity threshold)
-- **Internal Linking** - Intelligent link recommendations based on content similarity
-- **Collection Management** - Separate collections for articles, competitors, and research
-
-### Technical Details
-- Vector Database: Qdrant (port 6333)
-- Embedding Model: text-embedding-ada-002 (1536 dimensions)
-- Distance Metric: Cosine similarity
-- Chunking: 500 chars with 100 char overlap
-
-## Docker Commands
-
-```bash
-# Start services
-docker compose up -d
-
-# Stop services
-docker compose down
-
-# View logs
-docker compose logs -f [service-name]
-
-# Restart a specific service
-docker compose restart api
-
-# Remove all data and start fresh
-docker compose down -v
-docker compose up -d --build
-```
-
-## Directory Structure
-
-```
-blog-poster/
-├── app.py                  # Main FastAPI application
-├── orchestration_manager.py # Pipeline orchestration
-├── vector_search.py        # Qdrant integration
-├── wordpress_publisher.py  # WordPress publishing
-├── agents/                 # Multi-agent implementations
-│   ├── competitor_monitoring_agent.py
-│   ├── topic_analysis_agent.py
-│   ├── article_generation_agent.py
-│   └── legal_fact_checker_agent.py
-├── docker-compose.yml      # Service definitions
-├── requirements.txt        # Python dependencies
-├── .env.local             # Configuration (git-ignored)
-├── .env.example           # Configuration template
-├── docs/                  # Documentation
-│   ├── SYSTEM_DOCUMENTATION.md
-│   ├── API_REFERENCE.md
-│   └── DEPLOYMENT_GUIDE.md
-└── data/                  # Persistent data (git-ignored)
-    ├── articles/          # Generated articles cache
-    └── logs/              # Application logs
-```
-
-## Monitoring
-
-### Health Checks
-
-```bash
-# API health
-curl http://localhost:8088/health
-
-# Qdrant status
-curl http://localhost:6333/collections
-
-# View metrics
-curl http://localhost:8088/metrics
-```
-
-### Dashboards
-
-- API Documentation: http://localhost:8088/docs
-- Qdrant Dashboard: http://localhost:6333/dashboard
-
-## Troubleshooting
-
-### Services Not Starting
-
-```bash
-# Check logs for errors
-docker compose logs api
-docker compose logs qdrant
-
-# Verify port availability
-lsof -i :8088
-lsof -i :6333
-lsof -i :5433
-lsof -i :6384
-```
-
-### Connection Issues
-
-1. Verify WordPress URL in `.env.local`
-2. Check WordPress authentication credentials
-3. Ensure WPGraphQL is accessible
-4. Verify SSL settings for local development
-
-### API Key Issues
-
-1. Ensure API keys are correctly set in `.env.local`
-2. Verify API key quotas and limits
-3. Check rate limiting settings
-
-## Development
-
-### Running Locally (Without Docker)
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Set environment variables
-export $(cat .env.local | xargs)
-
-# Run the API
-uvicorn app:app --reload --port 8088
-```
-
-### Testing
-
-**Note**: Test suite not yet implemented. Planned testing structure:
-
-```bash
-# Future test commands (not yet available):
-# pytest tests/
-# python -m agents.topic_analysis --test
-# python -m tools.prompt_validator
-```
-
-### Creating Missing Components
-
-To complete the implementation, the following need to be created:
-1. Agent implementations in `/agents/` directory
-2. LLM integration in article generation
-3. Jina AI scraping integration
-4. Vector search implementation
-5. Test suite in `/tests/` directory
-
-## Production Deployment
-
-For production deployment:
-
-1. Use production environment variables
-2. Enable HTTPS/SSL
-3. Set up proper monitoring and alerting
-4. Configure backup strategies
-5. Implement rate limiting
-6. Use managed databases (RDS, Cloud SQL)
-
-## Security Considerations
-
-- API keys are stored in `.env.local` (never commit)
-- WordPress credentials use Application Passwords
-- All external URLs are validated
-- Content is fact-checked before publishing
-- Rate limiting prevents API abuse
-
-## Cost Management
-
-The service includes cost controls:
-- `MAX_COST_PER_ARTICLE`: Limits per-article spending
-- `MAX_MONTHLY_COST`: Monthly budget cap
-- Cost tracking and alerts at 80% threshold
-
-## 📚 Documentation
-
-All documentation is organized in the `docs/` directory:
-
-- **[Documentation Index](docs/index.md)** - Complete documentation overview
-- **[Setup Guide](docs/setup/SETUP.md)** - Detailed installation instructions  
-- **[Quick Start](docs/setup/QUICKSTART.md)** - 5-minute setup
-- **[API Documentation](docs/api/blog-poster.md)** - Endpoint details
-- **[Development Guides](docs/guides/)** - Best practices and workflows
-- **[Deployment Guides](docs/deployment/)** - Production deployment
-
-## 📁 Project Structure
-
-```
-blog-poster/
-├── app.py                    # Main FastAPI application
-├── orchestrator.py           # Workflow orchestration  
-├── wordpress_agent.py        # WordPress publishing
-├── contracts.py              # Data models
-├── docker-compose.yml        # Services
-├── docs/                     # All documentation
-├── PRPs/                     # Product requirements
-├── config/                   # Configuration files
-├── examples/                 # Example requests
-├── scripts/                  # Utility scripts
-└── tests/                    # Test suite (planned)
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### WordPress Connection Failed
-- Ensure permalinks are set to `/%category%/%postname%/`
-- Verify JSON Basic Authentication plugin is activated
-- Check username/password in `.env.local`
-- Restart API container: `make restart`
-
-#### Article Generation Failed
-- Verify AI API keys in `.env.local`
-- Check if keys are valid and have credits
-- Use `docker logs blog-api` to see detailed errors
-
-#### Container Issues
-```bash
-# Check container status
-docker ps
-
-# View logs
-docker logs blog-api --tail 50
-
-# Restart all services
-docker compose down && docker compose up -d
-```
-
-## Support
-
-For issues or questions:
-1. Check [Documentation](docs/index.md)
-2. Review [Quick Start Guide](docs/setup/QUICKSTART.md)
-3. View [Progress Tracking](PROGRESS.md)
-4. Check [Task Management](TASK.md)
-5. View logs: `docker compose logs -f`
-6. API docs: http://localhost:8088/docs
-
-## License
-
-Part of the ServiceDogUS platform. See main repository for license details.

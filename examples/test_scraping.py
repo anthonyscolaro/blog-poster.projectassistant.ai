@@ -11,7 +11,7 @@ import sys
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scrapers import WebScraper, CompetitorMonitor
+from src.scrapers.scrapers import WebScraper, CompetitorMonitor
 from agents.competitor_monitoring_agent import CompetitorMonitoringAgent
 
 

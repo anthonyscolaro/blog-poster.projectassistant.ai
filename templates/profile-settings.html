@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-person-gear"></i> Profile Settings</h2>
+            <div>
+                <button class="btn btn-outline-secondary" onclick="exportToEnv()">
+                    <i class="bi bi-download"></i> Export .env
+                </button>
+                <button class="btn btn-primary" onclick="testAllKeys()">
+                    <i class="bi bi-check-circle"></i> Test All Keys
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Keys Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-key"></i> API Keys Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-shield-lock"></i> <strong>Security Note:</strong> 
+                    API keys are encrypted and stored locally. They are never sent to external servers or committed to version control.
+                </div>
+                
+                <!-- Jina AI API Key -->
+                <div class="mb-4">
+                    <label for="jinaApiKey" class="form-label">
+                        <i class="bi bi-globe"></i> Jina AI API Key
+                        <small class="text-muted">(For competitor content scraping)</small>
+                    </label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="jinaApiKey" 
+                               placeholder="jina_xxxxxxxxxxxxx" 
+                               value="{{ api_keys.jina_api_key or '' }}">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('jinaApiKey')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-success" type="button" onclick="testKey('jina_api_key')">
+                            <i class="bi bi-check2"></i> Test
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" onclick="clearKey('jina_api_key')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Get your API key from <a href="https://jina.ai" target="_blank">jina.ai</a></small>
+                </div>
+                
+                <!-- Anthropic API Key -->
+                <div class="mb-4">
+                    <label for="anthropicApiKey" class="form-label">
+                        <i class="bi bi-robot"></i> Anthropic API Key (Claude)
+                        <small class="text-muted">(For article generation)</small>
+                    </label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="anthropicApiKey" 
+                               placeholder="sk-ant-xxxxxxxxxxxxx" 
+                               value="{{ api_keys.anthropic_api_key or '' }}">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('anthropicApiKey')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-success" type="button" onclick="testKey('anthropic_api_key')">
+                            <i class="bi bi-check2"></i> Test
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" onclick="clearKey('anthropic_api_key')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Get your API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></small>
+                </div>
+                
+                <!-- OpenAI API Key -->
+                <div class="mb-4">
+                    <label for="openaiApiKey" class="form-label">
+                        <i class="bi bi-cpu"></i> OpenAI API Key
+                        <small class="text-muted">(Fallback for article generation)</small>
+                    </label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="openaiApiKey" 
+                               placeholder="sk-xxxxxxxxxxxxx" 
+                               value="{{ api_keys.openai_api_key or '' }}">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('openaiApiKey')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-success" type="button" onclick="testKey('openai_api_key')">
+                            <i class="bi bi-check2"></i> Test
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" onclick="clearKey('openai_api_key')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Get your API key from <a href="https://platform.openai.com" target="_blank">platform.openai.com</a></small>
+                </div>
+                
+                <!-- Bright Data API Key -->
+                <div class="mb-4">
+                    <label for="brightDataApiKey" class="form-label">
+                        <i class="bi bi-brightness-high"></i> Bright Data API Key
+                        <small class="text-muted">(Alternative scraping service)</small>
+                    </label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="brightDataApiKey" 
+                               placeholder="API key for Bright Data" 
+                               value="{{ api_keys.bright_data_api_key or '' }}">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('brightDataApiKey')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-success" type="button" onclick="testKey('bright_data_api_key')">
+                            <i class="bi bi-check2"></i> Test
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" onclick="clearKey('bright_data_api_key')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Get your API key from <a href="https://brightdata.com" target="_blank">brightdata.com</a></small>
+                </div>
+                
+                <!-- Save Button -->
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-success btn-lg" onclick="saveAllKeys()">
+                        <i class="bi bi-save"></i> Save API Keys
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> API Key Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Configuration Status</h6>
+                        <ul class="list-unstyled">
+                            <li>
+                                <i class="bi bi-{{ 'check-circle text-success' if api_keys.jina_api_key else 'x-circle text-danger' }}"></i>
+                                Jina AI: {{ 'Configured' if api_keys.jina_api_key else 'Not configured' }}
+                            </li>
+                            <li>
+                                <i class="bi bi-{{ 'check-circle text-success' if api_keys.anthropic_api_key else 'x-circle text-danger' }}"></i>
+                                Anthropic: {{ 'Configured' if api_keys.anthropic_api_key else 'Not configured' }}
+                            </li>
+                            <li>
+                                <i class="bi bi-{{ 'check-circle text-success' if api_keys.openai_api_key else 'x-circle text-danger' }}"></i>
+                                OpenAI: {{ 'Configured' if api_keys.openai_api_key else 'Not configured' }}
+                            </li>
+                            <li>
+                                <i class="bi bi-{{ 'check-circle text-success' if api_keys.bright_data_api_key else 'x-circle text-danger' }}"></i>
+                                Bright Data: {{ 'Configured' if api_keys.bright_data_api_key else 'Not configured' }}
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Last Updated</h6>
+                        <p>{{ api_keys.last_updated.strftime('%Y-%m-%d %H:%M:%S') if api_keys.last_updated else 'Never' }}</p>
+                        
+                        <h6>Security</h6>
+                        <p class="text-success">
+                            <i class="bi bi-shield-check"></i> All keys are encrypted at rest
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Usage Guidelines -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-book"></i> Usage Guidelines
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>Required Keys</h6>
+                <ul>
+                    <li><strong>Anthropic or OpenAI:</strong> At least one is required for article generation</li>
+                    <li><strong>Jina AI:</strong> Required for competitor monitoring and content scraping</li>
+                </ul>
+                
+                <h6>Optional Keys</h6>
+                <ul>
+                    <li><strong>Bright Data:</strong> Fallback scraping service for when Jina AI is unavailable</li>
+                    <li><strong>Both Anthropic and OpenAI:</strong> Provides redundancy and fallback options</li>
+                </ul>
+                
+                <h6>Security Best Practices</h6>
+                <ul>
+                    <li>Never share your API keys with anyone</li>
+                    <li>Rotate keys regularly (every 90 days recommended)</li>
+                    <li>Use separate keys for development and production</li>
+                    <li>Monitor API usage for unusual activity</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = event.target.closest('button').querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+
+async function saveAllKeys() {
+    const keys = {
+        jina_api_key: document.getElementById('jinaApiKey').value || null,
+        anthropic_api_key: document.getElementById('anthropicApiKey').value || null,
+        openai_api_key: document.getElementById('openaiApiKey').value || null,
+        bright_data_api_key: document.getElementById('brightDataApiKey').value || null
+    };
+    
+    try {
+        const response = await fetch('/api/profile/api-keys', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(keys)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('API keys saved successfully!', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Failed to save API keys: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        showToast('Error saving API keys: ' + error.message, 'danger');
+    }
+}
+
+async function testKey(keyName) {
+    try {
+        const response = await fetch(`/api/profile/test-key/${keyName}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`${keyName} is valid!`, 'success');
+        } else {
+            showToast(`${keyName} test failed: ${result.message}`, 'warning');
+        }
+    } catch (error) {
+        showToast('Error testing key: ' + error.message, 'danger');
+    }
+}
+
+async function clearKey(keyName) {
+    if (!confirm(`Are you sure you want to clear the ${keyName}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/profile/clear-key/${keyName}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`${keyName} cleared successfully!`, 'success');
+            location.reload();
+        } else {
+            showToast(`Failed to clear ${keyName}`, 'danger');
+        }
+    } catch (error) {
+        showToast('Error clearing key: ' + error.message, 'danger');
+    }
+}
+
+async function testAllKeys() {
+    const keys = ['jina_api_key', 'anthropic_api_key', 'openai_api_key', 'bright_data_api_key'];
+    
+    for (const key of keys) {
+        await testKey(key);
+    }
+}
+
+async function exportToEnv() {
+    try {
+        const response = await fetch('/api/profile/export-env');
+        const result = await response.json();
+        
+        // Create a blob and download
+        const blob = new Blob([result.content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '.env.keys';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showToast('API keys exported to .env.keys file', 'success');
+    } catch (error) {
+        showToast('Error exporting keys: ' + error.message, 'danger');
+    }
+}
+
+function showToast(message, type = 'info') {
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastElement = document.createElement('div');
+    toastElement.innerHTML = toastHtml;
+    toastContainer.appendChild(toastElement.firstElementChild);
+    
+    const toast = new bootstrap.Toast(toastContainer.lastElementChild);
+    toast.show();
+    
+    toastContainer.lastElementChild.addEventListener('hidden.bs.toast', function() {
+        this.remove();
+    });
+}
+</script>
+{% endblock %}

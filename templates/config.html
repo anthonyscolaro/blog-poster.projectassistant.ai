@@ -395,12 +395,12 @@ async function saveConfiguration() {
         });
         
         if (response.ok) {
-            alert('Configuration saved successfully!');
+            showSuccess('Configuration saved successfully!');
         } else {
-            alert('Failed to save configuration');
+            showError('Failed to save configuration');
         }
     } catch (error) {
-        alert('Error saving configuration: ' + error.message);
+        showError('Error saving configuration: ' + error.message);
     }
 }
 
@@ -415,12 +415,13 @@ async function testWordPressConnection() {
         const result = await response.json();
         
         if (response.ok) {
-            alert('WordPress connection successful!\n\nDetails:\n' + JSON.stringify(result, null, 2));
+            showSuccess('WordPress connection successful! Check console for details.');
+            console.log('WordPress connection details:', result);
         } else {
-            alert('WordPress connection failed:\n' + result.detail);
+            showError('WordPress connection failed: ' + result.detail);
         }
     } catch (error) {
-        alert('WordPress test failed: ' + error.message);
+        showError('WordPress test failed: ' + error.message);
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -435,12 +436,12 @@ async function testAnthropicAPI() {
     try {
         const response = await fetch('/api/health/test-anthropic', { method: 'POST' });
         if (response.ok) {
-            alert('Anthropic API connection successful!');
+            showSuccess('Anthropic API connection successful!');
         } else {
-            alert('Anthropic API test failed');
+            showError('Anthropic API test failed');
         }
     } catch (error) {
-        alert('Anthropic API test failed: ' + error.message);
+        showError('Anthropic API test failed: ' + error.message);
     } finally {
         btn.innerHTML = '<i class="bi bi-check-circle"></i> Test';
         btn.disabled = false;
@@ -455,12 +456,12 @@ async function testJinaAPI() {
     try {
         const response = await fetch('/api/health/test-jina', { method: 'POST' });
         if (response.ok) {
-            alert('Jina AI API connection successful!');
+            showSuccess('Jina AI API connection successful!');
         } else {
-            alert('Jina AI API test failed');
+            showError('Jina AI API test failed');
         }
     } catch (error) {
-        alert('Jina AI API test failed: ' + error.message);
+        showError('Jina AI API test failed: ' + error.message);
     } finally {
         btn.innerHTML = '<i class="bi bi-check-circle"></i> Test';
         btn.disabled = false;
@@ -468,11 +469,11 @@ async function testJinaAPI() {
 }
 
 async function testOpenAIAPI() {
-    alert('OpenAI API test not implemented yet');
+    showInfo('OpenAI API test not implemented yet');
 }
 
 async function testBrightDataAPI() {
-    alert('Bright Data API test not implemented yet');
+    showInfo('Bright Data API test not implemented yet');
 }
 
 function exportConfiguration() {
@@ -521,7 +522,7 @@ function importConfiguration() {
     const file = fileInput.files[0];
     
     if (!file) {
-        alert('Please select a configuration file first');
+        showWarning('Please select a configuration file first');
         return;
     }
     
@@ -559,9 +560,9 @@ function importConfiguration() {
                 document.getElementById('enableMetrics').checked = config.advanced.enable_metrics || true;
             }
             
-            alert('Configuration imported successfully!');
+            showSuccess('Configuration imported successfully!');
         } catch (error) {
-            alert('Failed to import configuration: ' + error.message);
+            showError('Failed to import configuration: ' + error.message);
         }
     };
     

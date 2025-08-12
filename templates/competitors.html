@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-trophy"></i> Competitor Management</h2>
+            <div>
+                <button class="btn btn-outline-secondary" onclick="exportCompetitors()">
+                    <i class="bi bi-download"></i> Export
+                </button>
+                <button class="btn btn-outline-secondary" onclick="importCompetitors()">
+                    <i class="bi bi-upload"></i> Import
+                </button>
+                <button class="btn btn-primary" onclick="showAddCompetitorModal()">
+                    <i class="bi bi-plus-circle"></i> Add Competitor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Overview -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary">{{ total_competitors }}</h3>
+                <small class="text-muted">Total Competitors</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success">{{ active_competitors }}</h3>
+                <small class="text-muted">Active Monitoring</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info">{{ total_articles_tracked }}</h3>
+                <small class="text-muted">Articles Tracked</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-warning">{{ trending_topics_count }}</h3>
+                <small class="text-muted">Trending Topics</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Competitors List -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-ul"></i> Competitor Profiles
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Name</th>
+                                <th>Domain</th>
+                                <th>Focus Areas</th>
+                                <th>Last Scanned</th>
+                                <th>Articles</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for competitor in competitors %}
+                            <tr>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="status-{{ competitor.id }}"
+                                               {% if competitor.is_active %}checked{% endif %}
+                                               onchange="toggleCompetitorStatus('{{ competitor.id }}')">
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong>{{ competitor.name }}</strong>
+                                    {% if competitor.description %}
+                                    <br><small class="text-muted">{{ competitor.description }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="https://{{ competitor.domain }}" target="_blank" class="text-decoration-none">
+                                        {{ competitor.domain }}
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </td>
+                                <td>
+                                    {% for focus in competitor.content_focus[:3] %}
+                                    <span class="badge bg-info">{{ focus }}</span>
+                                    {% endfor %}
+                                    {% if competitor.content_focus|length > 3 %}
+                                    <span class="badge bg-secondary">+{{ competitor.content_focus|length - 3 }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if competitor.last_scanned %}
+                                        <span class="text-success">{{ competitor.last_scanned.strftime('%Y-%m-%d %H:%M') }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Never</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ competitor.total_articles_found }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="viewCompetitorDetails('{{ competitor.id }}')"
+                                                title="View Details">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                onclick="editCompetitor('{{ competitor.id }}')"
+                                                title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info" 
+                                                onclick="scanCompetitor('{{ competitor.id }}')"
+                                                title="Scan Now">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="deleteCompetitor('{{ competitor.id }}')"
+                                                title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if not competitors %}
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-3">No competitors configured yet</p>
+                    <button class="btn btn-primary" onclick="showAddCompetitorModal()">
+                        <i class="bi bi-plus-circle"></i> Add Your First Competitor
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Competitor Modal -->
+<div class="modal fade" id="competitorModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="competitorModalTitle">Add Competitor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="competitorForm" onsubmit="return false;">
+                    <input type="hidden" id="competitorId">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="competitorName" class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="competitorName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="competitorDomain" class="form-label">Domain *</label>
+                            <input type="text" class="form-control" id="competitorDomain" 
+                                   placeholder="example.com" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="competitorDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="competitorDescription" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="blogUrl" class="form-label">Blog URL</label>
+                            <input type="url" class="form-control" id="blogUrl" 
+                                   placeholder="https://example.com/blog">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="newsUrl" class="form-label">News URL</label>
+                            <input type="url" class="form-control" id="newsUrl" 
+                                   placeholder="https://example.com/news">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="resourcesUrl" class="form-label">Resources URL</label>
+                            <input type="url" class="form-control" id="resourcesUrl" 
+                                   placeholder="https://example.com/resources">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="contentFocus" class="form-label">Content Focus Areas</label>
+                        <input type="text" class="form-control" id="contentFocus" 
+                               placeholder="training, laws, certification (comma-separated)">
+                        <small class="text-muted">Enter comma-separated topics this competitor focuses on</small>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="scanFrequency" class="form-label">Scan Frequency (hours)</label>
+                            <input type="number" class="form-control" id="scanFrequency" 
+                                   value="24" min="1" max="168">
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="isActive" checked>
+                                <label class="form-check-label" for="isActive">
+                                    Active Monitoring
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="competitorNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="competitorNotes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveCompetitor()">Save Competitor</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Competitor Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailsModalTitle">Competitor Insights</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailsModalBody">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let competitorModal;
+let detailsModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    competitorModal = new bootstrap.Modal(document.getElementById('competitorModal'), {
+        backdrop: 'static',
+        keyboard: false
+    });
+    detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
+        backdrop: 'static',
+        keyboard: false
+    });
+});
+
+function showAddCompetitorModal() {
+    document.getElementById('competitorModalTitle').textContent = 'Add Competitor';
+    document.getElementById('competitorForm').reset();
+    document.getElementById('competitorId').value = '';
+    competitorModal.show();
+}
+
+async function editCompetitor(competitorId) {
+    try {
+        const response = await fetch(`/api/competitors/${competitorId}`);
+        const data = await response.json();
+        
+        document.getElementById('competitorModalTitle').textContent = 'Edit Competitor';
+        document.getElementById('competitorId').value = data.id;
+        document.getElementById('competitorName').value = data.name;
+        document.getElementById('competitorDomain').value = data.domain;
+        document.getElementById('competitorDescription').value = data.description || '';
+        document.getElementById('blogUrl').value = data.blog_url || '';
+        document.getElementById('newsUrl').value = data.news_url || '';
+        document.getElementById('resourcesUrl').value = data.resources_url || '';
+        document.getElementById('contentFocus').value = data.content_focus.join(', ');
+        document.getElementById('scanFrequency').value = data.scan_frequency_hours;
+        document.getElementById('isActive').checked = data.is_active;
+        document.getElementById('competitorNotes').value = data.notes || '';
+        
+        competitorModal.show();
+    } catch (error) {
+        showToast('Error loading competitor: ' + error.message, 'danger');
+    }
+}
+
+async function saveCompetitor() {
+    // Validate required fields first
+    const name = document.getElementById('competitorName').value;
+    const domain = document.getElementById('competitorDomain').value;
+    
+    if (!name || !domain) {
+        showToast('Please fill in all required fields', 'warning');
+        return;
+    }
+    
+    const competitorId = document.getElementById('competitorId').value;
+    const isEdit = !!competitorId;
+    
+    const competitorData = {
+        name: name,
+        domain: domain.replace(/^https?:\/\//, ''),
+        description: document.getElementById('competitorDescription').value,
+        blog_url: document.getElementById('blogUrl').value,
+        news_url: document.getElementById('newsUrl').value,
+        resources_url: document.getElementById('resourcesUrl').value,
+        content_focus: document.getElementById('contentFocus').value.split(',').map(s => s.trim()).filter(s => s),
+        scan_frequency_hours: parseInt(document.getElementById('scanFrequency').value),
+        is_active: document.getElementById('isActive').checked,
+        notes: document.getElementById('competitorNotes').value
+    };
+    
+    if (!isEdit) {
+        // Generate ID from domain
+        competitorData.id = competitorData.domain.replace(/\./g, '_').replace(/[^a-z0-9_]/g, '');
+    }
+    
+    try {
+        const url = isEdit ? `/api/competitors/${competitorId}` : '/api/competitors';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(competitorData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`Competitor ${isEdit ? 'updated' : 'added'} successfully!`, 'success');
+            competitorModal.hide();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Failed to save competitor: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        showToast('Error saving competitor: ' + error.message, 'danger');
+    }
+}
+
+async function deleteCompetitor(competitorId) {
+    if (!confirm('Are you sure you want to delete this competitor?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/competitors/${competitorId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Competitor deleted successfully!', 'success');
+            location.reload();
+        } else {
+            showToast('Failed to delete competitor', 'danger');
+        }
+    } catch (error) {
+        showToast('Error deleting competitor: ' + error.message, 'danger');
+    }
+}
+
+async function toggleCompetitorStatus(competitorId) {
+    try {
+        const response = await fetch(`/api/competitors/${competitorId}/toggle`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`Competitor ${result.is_active ? 'activated' : 'deactivated'}`, 'success');
+        } else {
+            showToast('Failed to toggle competitor status', 'danger');
+            // Revert checkbox
+            const checkbox = document.getElementById(`status-${competitorId}`);
+            checkbox.checked = !checkbox.checked;
+        }
+    } catch (error) {
+        showToast('Error toggling status: ' + error.message, 'danger');
+    }
+}
+
+async function scanCompetitor(competitorId) {
+    showToast('Scanning competitor...', 'info');
+    
+    try {
+        const response = await fetch(`/api/competitors/${competitorId}/scan`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`Scan complete! Found ${result.articles_found} articles`, 'success');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast('Scan failed: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        showToast('Error scanning competitor: ' + error.message, 'danger');
+    }
+}
+
+async function viewCompetitorDetails(competitorId) {
+    try {
+        const response = await fetch(`/api/competitors/${competitorId}/insights`);
+        const data = await response.json();
+        
+        document.getElementById('detailsModalTitle').textContent = `Insights: ${data.competitor_name}`;
+        
+        const detailsHtml = `
+            <div class="row">
+                <div class="col-md-4">
+                    <h6>Scan Metrics</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Last Scan:</strong> ${data.scan_date}</li>
+                        <li><strong>New Articles:</strong> ${data.new_articles_count}</li>
+                        <li><strong>Total Scanned:</strong> ${data.total_articles_scanned}</li>
+                        <li><strong>Posting Frequency:</strong> ${data.posting_frequency}</li>
+                        <li><strong>Avg Word Count:</strong> ${data.average_word_count}</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6>Trending Topics</h6>
+                    <ul class="list-group">
+                        ${data.trending_topics.map(t => `
+                            <li class="list-group-item d-flex justify-content-between">
+                                ${t.topic}
+                                <span class="badge bg-primary">${t.score}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6>Content Types</h6>
+                    <ul class="list-unstyled">
+                        ${Object.entries(data.content_types || {}).map(([type, count]) => `
+                            <li>${type}: ${count} articles</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('detailsModalBody').innerHTML = detailsHtml;
+        detailsModal.show();
+    } catch (error) {
+        showToast('Error loading insights: ' + error.message, 'danger');
+    }
+}
+
+async function exportCompetitors() {
+    try {
+        const response = await fetch('/api/competitors/export');
+        const data = await response.json();
+        
+        const blob = new Blob([data.content], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'competitors.json';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showToast('Competitors exported successfully', 'success');
+    } catch (error) {
+        showToast('Error exporting competitors: ' + error.message, 'danger');
+    }
+}
+
+function importCompetitors() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const response = await fetch('/api/competitors/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ data: event.target.result })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`Imported ${result.imported} competitors`, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('Import failed: ' + result.message, 'danger');
+                }
+            } catch (error) {
+                showToast('Error importing competitors: ' + error.message, 'danger');
+            }
+        };
+        
+        reader.readAsText(file);
+    };
+    
+    input.click();
+}
+
+function showToast(message, type = 'info') {
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastElement = document.createElement('div');
+    toastElement.innerHTML = toastHtml;
+    toastContainer.appendChild(toastElement.firstElementChild);
+    
+    const toast = new bootstrap.Toast(toastContainer.lastElementChild);
+    toast.show();
+    
+    toastContainer.lastElementChild.addEventListener('hidden.bs.toast', function() {
+        this.remove();
+    });
+}
+</script>
+{% endblock %}

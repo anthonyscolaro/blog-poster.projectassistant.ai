@@ -54,7 +54,7 @@
         <div class="card metric-card">
             <div class="card-body">
                 <div class="metric-value text-info">
-                    {% set total_words = articles|sum(attribute="word_count") %}
+                    {% set total_words = articles|selectattr("word_count", "defined")|map(attribute="word_count")|sum %}
                     {{ "{:,}".format(total_words or 0) }}
                 </div>
                 <div class="metric-label">Total Words</div>
@@ -114,7 +114,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    {% if article.word_count %}
+                                    {% if article.get('word_count') %}
                                         {{ "{:,}".format(article.word_count) }}
                                         <div class="small text-muted">
                                             {% if article.word_count >= 1500 %}
@@ -162,11 +162,11 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <button class="btn btn-outline-primary btn-sm"
-                                                onclick="viewArticle('{{ article.file_path }}')"
-                                                title="View Article">
+                                        <a href="/articles/{{ article.file_path.split('/')[-1].replace('.json', '') }}" 
+                                           class="btn btn-outline-primary btn-sm"
+                                           title="View Article">
                                             <i class="bi bi-eye"></i>
-                                        </button>
+                                        </a>
                                         
                                         {% if article.wordpress_post_id %}
                                         <a href="{{ article.wordpress_url }}" 
@@ -248,19 +248,24 @@
             <div class="modal-body">
                 <form id="articleEditForm">
                     <div class="mb-3">
-                        <label for="articleTitle" class="form-label">Title</label>
-                        <input type="text" class="form-control" id="articleTitle" required>
+                        <label for="articleTitle" class="form-label">Title <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="articleTitle" 
+                               data-validate='{"required": true, "minLength": 10, "maxLength": 60}'
+                               placeholder="Enter a compelling title (10-60 characters)">
                     </div>
                     
                     <div class="mb-3">
-                        <label for="articleKeyword" class="form-label">Primary Keyword</label>
-                        <input type="text" class="form-control" id="articleKeyword">
+                        <label for="articleKeyword" class="form-label">Primary Keyword <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="articleKeyword"
+                               data-validate='{"required": true, "minLength": 3, "maxLength": 50}'
+                               placeholder="Main keyword for SEO">
                     </div>
                     
                     <div class="mb-3">
                         <label for="articleMeta" class="form-label">Meta Description</label>
-                        <textarea class="form-control" id="articleMeta" rows="2" maxlength="155"></textarea>
-                        <div class="form-text">Characters: <span id="metaCount">0</span>/155</div>
+                        <textarea class="form-control" id="articleMeta" rows="2"
+                                  data-validate='{"maxLength": 155}'
+                                  placeholder="Brief description for search engines (max 155 characters)"></textarea>
                     </div>
                     
                     <div class="mb-3">
@@ -296,9 +301,7 @@ async function viewArticle(filePath) {
                 <div class="mb-2">
                     <span class="badge bg-primary">${article.primary_keyword || 'No keyword'}</span>
                     <span class="badge bg-info">${article.word_count || 0} words</span>
-                    {% if article.seo_score %}
-                    <span class="badge bg-success">SEO: ${article.seo_score}/100</span>
-                    {% endif %}
+                    ${article.seo_score ? `<span class="badge bg-success">SEO: ${article.seo_score}/100</span>` : ''}
                 </div>
             </div>
             <div class="article-content">
@@ -311,7 +314,7 @@ async function viewArticle(filePath) {
         
         new bootstrap.Modal(document.getElementById('articlePreviewModal')).show();
     } catch (error) {
-        alert('Failed to load article: ' + error.message);
+        showError('Failed to load article: ' + error.message);
     }
 }
 
@@ -330,11 +333,18 @@ async function editArticle(filePath) {
         
         new bootstrap.Modal(document.getElementById('articleEditorModal')).show();
     } catch (error) {
-        alert('Failed to load article for editing: ' + error.message);
+        showError('Failed to load article for editing: ' + error.message);
     }
 }
 
 async function saveArticle() {
+    // Validate form first
+    const form = document.getElementById('articleEditForm');
+    if (!FormValidator.validateForm(form)) {
+        showWarning('Please fix the validation errors before saving');
+        return;
+    }
+    
     const updatedArticle = {
         title: document.getElementById('articleTitle').value,
         primary_keyword: document.getElementById('articleKeyword').value,
@@ -342,6 +352,7 @@ async function saveArticle() {
         content: document.getElementById('articleContent').value
     };
     
+    showLoading();
     try {
         const response = await fetch(`/api/article/update`, {
             method: 'POST',
@@ -352,20 +363,23 @@ async function saveArticle() {
             })
         });
         
+        hideLoading();
         if (response.ok) {
-            alert('Article updated successfully!');
+            showSuccess('Article updated successfully!');
             bootstrap.Modal.getInstance(document.getElementById('articleEditorModal')).hide();
-            window.location.reload();
+            setTimeout(() => window.location.reload(), 1500);
         } else {
-            alert('Failed to update article');
+            showError('Failed to update article');
         }
     } catch (error) {
-        alert('Error updating article: ' + error.message);
+        hideLoading();
+        showError('Error updating article: ' + error.message);
     }
 }
 
 async function publishToWordPress(filePath) {
-    if (confirm('Publish this article to WordPress?')) {
+    const confirmed = await showConfirm('Publish Article', 'Publish this article to WordPress?');
+    if (confirmed) {
         try {
             const response = await fetch('/api/article/publish', {
                 method: 'POST',
@@ -375,19 +389,20 @@ async function publishToWordPress(filePath) {
             
             const result = await response.json();
             if (response.ok) {
-                alert(`Article published successfully! Post ID: ${result.post_id}`);
-                window.location.reload();
+                showSuccess(`Article published successfully! Post ID: ${result.post_id}`);
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert('Failed to publish: ' + result.detail);
+                showError('Failed to publish: ' + result.detail);
             }
         } catch (error) {
-            alert('Publishing failed: ' + error.message);
+            showError('Publishing failed: ' + error.message);
         }
     }
 }
 
 async function deleteArticle(filePath) {
-    if (confirm('Delete this article? This action cannot be undone.')) {
+    const confirmed = await showConfirm('Delete Article', 'Delete this article? This action cannot be undone.');
+    if (confirmed) {
         try {
             const response = await fetch(`/api/article/delete`, {
                 method: 'DELETE',
@@ -396,31 +411,18 @@ async function deleteArticle(filePath) {
             });
             
             if (response.ok) {
-                alert('Article deleted successfully!');
-                window.location.reload();
+                showSuccess('Article deleted successfully!');
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert('Failed to delete article');
+                showError('Failed to delete article');
             }
         } catch (error) {
-            alert('Error deleting article: ' + error.message);
+            showError('Error deleting article: ' + error.message);
         }
     }
 }
 
-function updateMetaCount() {
-    const meta = document.getElementById('articleMeta');
-    const count = document.getElementById('metaCount');
-    count.textContent = meta.value.length;
-    
-    if (meta.value.length > 155) {
-        count.className = 'text-danger';
-    } else if (meta.value.length > 140) {
-        count.className = 'text-warning';
-    } else {
-        count.className = 'text-success';
-    }
-}
-
-document.getElementById('articleMeta').addEventListener('input', updateMetaCount);
+// Form validation is now handled by the FormValidator class in base.html
+// Character counting and validation happens automatically for fields with data-validate attributes
 </script>
 {% endblock %}

@@ -5,12 +5,12 @@
     "description": "Local WordPress development environment",
     "website_url": "http://localhost:8084",
     "created_at": "2025-08-11 06:43:44.270127",
-    "updated_at": "2025-08-11 06:43:44.270173",
+    "updated_at": "2025-08-11 15:48:49.204455",
     "is_active": false,
     "wordpress": {
-      "url": "http://localhost:8084",
-      "username": "admin",
-      "password": "admin123",
+      "url": "http://host.docker.internal:8084",
+      "username": "anthony",
+      "password": "uSn8r9f32DM4y^bXRuS9kb3K",
       "auth_method": "basic",
       "verify_ssl": false,
       "graphql_endpoint": "/graphql"
@@ -26,7 +26,7 @@
       "competitor_monitoring": true,
       "topic_analysis": true,
       "fact_checking": true,
-      "auto_publish": false,
+      "auto_publish": true,
       "require_human_approval": true
     },
     "advanced": {
@@ -85,52 +85,12 @@
     "description": "ServiceDogUS production",
     "website_url": "https://www.servicedogus.org",
     "created_at": "2025-08-11 06:43:44.271991",
-    "updated_at": "2025-08-10 23:30:54.950027",
+    "updated_at": "2025-08-11 19:20:58.427329",
     "is_active": true,
     "wordpress": {
       "url": "https://wp.servicedogus.org",
       "username": "anthony",
-      "password": "27MxGGUUNOxYLicqKvVwnlef",
-      "auth_method": "application",
-      "verify_ssl": true,
-      "graphql_endpoint": "/graphql"
-    },
-    "content": {
-      "min_words": 1500,
-      "max_words": 2500,
-      "max_cost_per_article": 15.0,
-      "monthly_budget": 500.0,
-      "alert_threshold": 400.0
-    },
-    "agents": {
-      "competitor_monitoring": true,
-      "topic_analysis": true,
-      "fact_checking": true,
-      "auto_publish": false,
-      "require_human_approval": true
-    },
-    "advanced": {
-      "log_level": "INFO",
-      "max_workers": 4,
-      "task_timeout": 300,
-      "enable_metrics": true,
-      "api_rate_limit": 60,
-      "scraping_delay": 1.0
-    },
-    "env_file": null
-  },
-  "030151d7-6981-4eab-b42e-4003c69203ea": {
-    "id": "030151d7-6981-4eab-b42e-4003c69203ea",
-    "name": "ServiceDogUS Copy",
-    "description": "Copy of Test ServiceDogUS",
-    "website_url": "https://servicedogus.org",
-    "created_at": "2025-08-11 06:43:44.272668",
-    "updated_at": "2025-08-11 06:43:44.272683",
-    "is_active": false,
-    "wordpress": {
-      "url": "https://wp.servicedogus.org",
-      "username": "test-user",
-      "password": "test-password",
+      "password": "xXm1 wxox bNCc y4Cq Sv1A ff8o",
       "auth_method": "application",
       "verify_ssl": true,
       "graphql_endpoint": "/graphql"

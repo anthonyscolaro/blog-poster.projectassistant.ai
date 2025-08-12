@@ -1,0 +1,144 @@
+# Digital Ocean App Platform Specification
+# Blog Poster Application with PostgreSQL Database
+name: blog-poster
+region: nyc
+
+# PostgreSQL Managed Database
+databases:
+  - name: blog-db
+    engine: PG
+    version: "15"
+    size: db-s-1vcpu-1gb  # $15/month
+    num_nodes: 1
+
+services:
+  # Main API Service
+  - name: api
+    github:
+      repo: anthonyscolaro/blog-poster
+      branch: main
+      deploy_on_push: true
+    
+    dockerfile_path: Dockerfile
+    source_dir: /
+    http_port: 8088
+    
+    # Instance configuration
+    instance_size_slug: basic-xs  # $10/month (512MB RAM, 1 vCPU)
+    instance_count: 1
+    
+    # Health check
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 30
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 3
+    
+    # Environment variables
+    envs:
+      # Database connection (automatically provided by DO)
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${blog-db.DATABASE_URL}
+      
+      # API Keys (set these via DO dashboard)
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: JINA_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: BRIGHT_DATA_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      # WordPress Configuration
+      - key: WORDPRESS_URL
+        scope: RUN_TIME
+        value: "https://servicedogus.org"
+      
+      - key: WP_USERNAME
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: WP_APP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: WP_VERIFY_SSL
+        scope: RUN_TIME
+        value: "true"
+      
+      # Application Configuration
+      - key: ENVIRONMENT
+        scope: RUN_TIME
+        value: "production"
+      
+      - key: API_ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: MAX_COST_PER_ARTICLE
+        scope: RUN_TIME
+        value: "2.00"
+      
+      - key: MAX_MONTHLY_COST
+        scope: RUN_TIME
+        value: "100.00"
+      
+      - key: ARTICLE_MIN_WORDS
+        scope: RUN_TIME
+        value: "1500"
+      
+      - key: ARTICLE_MAX_WORDS
+        scope: RUN_TIME
+        value: "3000"
+      
+      # Redis (optional - for future use)
+      - key: REDIS_URL
+        scope: RUN_TIME
+        value: "redis://localhost:6379"
+      
+      # Qdrant Cloud (if using cloud version)
+      - key: QDRANT_URL
+        scope: RUN_TIME
+        value: "https://your-cluster.qdrant.io"  # Update with your Qdrant Cloud URL
+      
+      - key: QDRANT_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      # Logging
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: "INFO"
+      
+      - key: SQL_ECHO
+        scope: RUN_TIME
+        value: "false"
+    
+    # Run command
+    run_command: |
+      # Initialize database on first run
+      python scripts/init_database.py
+      # Start the application
+      uvicorn app:app --host 0.0.0.0 --port 8088
+
+# Custom domain - using blogpost.projectassistant.ai
+domains:
+  - domain: blogpost.projectassistant.ai
+    type: PRIMARY
+
+# Notes:
+# 1. After creating the app, go to the DO dashboard to set SECRET environment variables
+# 2. The DATABASE_URL will be automatically populated by Digital Ocean
+# 3. Total estimated cost: ~$25-30/month (DB: $15, App: $10, plus API usage)
+# 4. To deploy: doctl apps create --spec .do/app.yaml

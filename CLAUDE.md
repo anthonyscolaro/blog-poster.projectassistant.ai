@@ -164,6 +164,14 @@
 - **Complete Deployment Validation** - Test all endpoints, health checks, and user flows after deployment completion.
 - **Documentation-Driven Deployment** - Use the established collections in `docs/deployment-workflows/` and `docs/infrastructure-guides/` for consistent deployment approaches.
 
+### ☁️ Digital Ocean Integration
+- **CLI Tool**: `doctl` v1.124.0 installed via Homebrew at `/opt/homebrew/bin/doctl`
+- **Authentication**: Account authenticated as `anthonys@projectassistant.org` (Team: Project Assistant)
+- **Account Status**: Active with 15 droplet limit, email verified
+- **UUID**: `8645b5d7cc4c53a7e6b12eb05835ad25294883e3`
+- **Deployment Target**: Digital Ocean App Platform for Docker-based deployment
+- **Auth Check**: Use `doctl account get` to verify connection
+
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.

@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>
+                <a href="/pipeline" class="text-decoration-none text-muted">
+                    <i class="bi bi-arrow-left-circle"></i>
+                </a>
+                Pipeline Details
+            </h2>
+            <div>
+                <span class="badge bg-{{ 'success' if pipeline.status == 'completed' else 'danger' if pipeline.status == 'failed' else 'warning' }}">
+                    {{ pipeline.status|upper }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pipeline Overview -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Pipeline Overview
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Pipeline ID:</strong> {{ pipeline.pipeline_id }}</p>
+                        <p><strong>Started:</strong> {{ pipeline.started_at }}</p>
+                        <p><strong>Completed:</strong> {{ pipeline.completed_at or 'In Progress' }}</p>
+                        <p><strong>Duration:</strong> {{ pipeline.execution_time }}s</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Primary Keyword:</strong> <span class="badge bg-info">{{ pipeline.primary_keyword or 'Auto-selected' }}</span></p>
+                        <p><strong>Total Cost:</strong> ${{ "%.4f"|format(pipeline.total_cost) }}</p>
+                        <p><strong>Article Generated:</strong> 
+                            {% if pipeline.article %}
+                                <a href="/articles/{{ pipeline.article_id }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-file-text"></i> View Article
+                                </a>
+                            {% else %}
+                                <span class="text-muted">No article generated</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Competitor Insights -->
+{% if pipeline.competitor_insights %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up"></i> Competitor Insights
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Content Analysis</h6>
+                        <p><strong>Content Pieces Analyzed:</strong> {{ pipeline.competitor_insights.content_pieces }}</p>
+                        
+                        {% if pipeline.competitor_insights.trending_topics %}
+                        <h6 class="mt-3">Trending Topics</h6>
+                        <ul class="list-group">
+                            {% for topic in pipeline.competitor_insights.trending_topics[:5] %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ topic.topic }}
+                                <span class="badge bg-primary rounded-pill">Score: {{ topic.score }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        {% if pipeline.competitor_insights.content_gaps %}
+                        <h6>Content Gaps Identified</h6>
+                        <ul class="list-group">
+                            {% for gap in pipeline.competitor_insights.content_gaps[:5] %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ gap.topic }}
+                                <span class="badge bg-warning text-dark rounded-pill">Opportunity: {{ gap.opportunity }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        
+                        {% if pipeline.competitor_insights.recommended_topics %}
+                        <h6 class="mt-3">Recommended Topics</h6>
+                        <ul class="list-group">
+                            {% for topic in pipeline.competitor_insights.recommended_topics[:5] %}
+                            <li class="list-group-item">
+                                <i class="bi bi-lightbulb text-warning"></i> {{ topic }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Topic Analysis -->
+{% if pipeline.topic_recommendation %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightbulb"></i> Topic Analysis Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Selected Topic</h6>
+                        <p><strong>Title:</strong> {{ pipeline.topic_recommendation.title }}</p>
+                        <p><strong>Primary Keyword:</strong> <span class="badge bg-primary">{{ pipeline.topic_recommendation.primary_keyword }}</span></p>
+                        <p><strong>Secondary Keywords:</strong></p>
+                        <div>
+                            {% for kw in pipeline.topic_recommendation.secondary_keywords %}
+                            <span class="badge bg-secondary me-1">{{ kw }}</span>
+                            {% endfor %}
+                        </div>
+                        <p class="mt-2"><strong>Target Word Count:</strong> {{ pipeline.topic_recommendation.target_word_count }}</p>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Analysis Metrics</h6>
+                        <p><strong>Priority Score:</strong> 
+                            <div class="progress">
+                                <div class="progress-bar bg-success" style="width: {{ pipeline.topic_recommendation.priority_score }}%">
+                                    {{ pipeline.topic_recommendation.priority_score }}/100
+                                </div>
+                            </div>
+                        </p>
+                        <p><strong>Estimated Difficulty:</strong> 
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" style="width: {{ (pipeline.topic_recommendation.estimated_difficulty * 100)|int }}%">
+                                    {{ (pipeline.topic_recommendation.estimated_difficulty * 100)|int }}%
+                                </div>
+                            </div>
+                        </p>
+                        <p><strong>Estimated Impact:</strong> 
+                            <div class="progress">
+                                <div class="progress-bar bg-info" style="width: {{ (pipeline.topic_recommendation.estimated_impact * 100)|int }}%">
+                                    {{ (pipeline.topic_recommendation.estimated_impact * 100)|int }}%
+                                </div>
+                            </div>
+                        </p>
+                        <p><strong>Rationale:</strong> {{ pipeline.topic_recommendation.rationale }}</p>
+                    </div>
+                </div>
+                
+                {% if pipeline.topic_recommendation.content_outline %}
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h6>Content Outline</h6>
+                        <ol class="list-group list-group-numbered">
+                            {% for section in pipeline.topic_recommendation.content_outline %}
+                            <li class="list-group-item">{{ section }}</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Article Generation Results -->
+{% if pipeline.article %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-text"></i> Article Generation Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Article Details</h6>
+                        <p><strong>Title:</strong> {{ pipeline.article.title }}</p>
+                        <p><strong>Word Count:</strong> {{ pipeline.article.word_count }}</p>
+                        <p><strong>Reading Time:</strong> {{ pipeline.article.estimated_reading_time }} minutes</p>
+                        <p><strong>Reading Level:</strong> Grade {{ pipeline.article.reading_level }}</p>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>SEO Metrics</h6>
+                        <p><strong>SEO Score:</strong>
+                            <div class="progress">
+                                <div class="progress-bar bg-{{ 'success' if pipeline.article.seo_score >= 80 else 'warning' if pipeline.article.seo_score >= 60 else 'danger' }}" 
+                                     style="width: {{ pipeline.article.seo_score }}%">
+                                    {{ pipeline.article.seo_score }}/100
+                                </div>
+                            </div>
+                        </p>
+                        <p><strong>Meta Title:</strong> {{ pipeline.article.meta_title }}</p>
+                        <p><strong>Meta Description:</strong> {{ pipeline.article.meta_description }}</p>
+                        <p><strong>Internal Links:</strong> {{ pipeline.article.internal_links|length }}</p>
+                        <p><strong>External Links:</strong> {{ pipeline.article.external_links|length }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="d-flex gap-2">
+                            <a href="/articles/{{ pipeline.article_id }}" class="btn btn-primary">
+                                <i class="bi bi-eye"></i> View Full Article
+                            </a>
+                            {% if pipeline.article.content_markdown %}
+                            <button class="btn btn-outline-secondary" onclick="toggleArticlePreview()">
+                                <i class="bi bi-file-earmark-text"></i> Toggle Preview
+                            </button>
+                            {% endif %}
+                        </div>
+                        
+                        <div id="articlePreview" class="mt-3 p-3 border rounded" style="display: none;">
+                            <h6>Article Preview</h6>
+                            <div class="article-content">
+                                {{ pipeline.article.content_markdown[:500]|markdown }}...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Fact Checking Results -->
+{% if pipeline.fact_check_report %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-shield-check"></i> Legal Fact Checking Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6>Overall Accuracy</h6>
+                        <div class="text-center">
+                            <div class="display-4 text-{{ 'success' if pipeline.fact_check_report.overall_accuracy_score >= 0.9 else 'warning' if pipeline.fact_check_report.overall_accuracy_score >= 0.7 else 'danger' }}">
+                                {{ (pipeline.fact_check_report.overall_accuracy_score * 100)|int }}%
+                            </div>
+                            <p>Accuracy Score</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <h6>Claims Analysis</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> Verified Claims: {{ pipeline.fact_check_report.verified_claims }}</li>
+                            <li><i class="bi bi-x-circle text-danger"></i> Incorrect Claims: {{ pipeline.fact_check_report.incorrect_claims|length }}</li>
+                            <li><i class="bi bi-info-circle text-info"></i> Total Claims: {{ pipeline.fact_check_report.total_claims }}</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <h6>Legal Compliance</h6>
+                        <ul class="list-unstyled">
+                            <li>
+                                <i class="bi bi-{{ 'check-circle text-success' if pipeline.fact_check_report.ada_compliant else 'exclamation-triangle text-warning' }}"></i> 
+                                ADA Compliance: {{ 'Verified' if pipeline.fact_check_report.ada_compliant else 'Review Needed' }}
+                            </li>
+                            <li>
+                                <i class="bi bi-file-text"></i> 
+                                Citations: {{ pipeline.fact_check_report.citations_needed|length }} needed
+                            </li>
+                            <li>
+                                <i class="bi bi-shield"></i> 
+                                Legal Risk: {{ pipeline.fact_check_report.legal_risk_level or 'Low' }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if pipeline.fact_check_report.incorrect_claims %}
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h6>Issues Requiring Attention</h6>
+                        <div class="alert alert-warning">
+                            <ul>
+                                {% for claim in pipeline.fact_check_report.incorrect_claims[:5] %}
+                                <li>{{ claim }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if pipeline.fact_check_report.corrections_applied %}
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <h6>Corrections Applied</h6>
+                        <div class="alert alert-success">
+                            <ul>
+                                {% for correction in pipeline.fact_check_report.corrections_applied[:5] %}
+                                <li>{{ correction }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- WordPress Publishing Results -->
+{% if pipeline.wordpress_result %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-{{ 'success' if pipeline.wordpress_result.success else 'danger' }} text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-wordpress"></i> WordPress Publishing Results
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if pipeline.wordpress_result.success %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Publication Details</h6>
+                        <p><strong>Post ID:</strong> {{ pipeline.wordpress_result.post_id }}</p>
+                        <p><strong>Status:</strong> <span class="badge bg-{{ 'success' if pipeline.wordpress_result.status == 'publish' else 'warning' }}">{{ pipeline.wordpress_result.status|upper }}</span></p>
+                        <p><strong>Slug:</strong> {{ pipeline.wordpress_result.slug }}</p>
+                        <p><strong>Created:</strong> {{ pipeline.wordpress_result.created_at }}</p>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Actions</h6>
+                        <div class="d-flex gap-2 flex-column">
+                            {% if pipeline.wordpress_result.edit_link %}
+                            <a href="{{ pipeline.wordpress_result.edit_link }}" target="_blank" class="btn btn-outline-primary">
+                                <i class="bi bi-pencil-square"></i> Edit in WordPress
+                            </a>
+                            {% endif %}
+                            {% if pipeline.wordpress_result.preview_link %}
+                            <a href="{{ pipeline.wordpress_result.preview_link }}" target="_blank" class="btn btn-outline-success">
+                                <i class="bi bi-eye"></i> Preview Post
+                            </a>
+                            {% endif %}
+                            {% if pipeline.wordpress_result.link %}
+                            <a href="{{ pipeline.wordpress_result.link }}" target="_blank" class="btn btn-outline-info">
+                                <i class="bi bi-box-arrow-up-right"></i> View Live
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-danger">
+                    <h6>Publishing Failed</h6>
+                    <p>{{ pipeline.wordpress_result.error }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Errors and Warnings -->
+{% if pipeline.errors or pipeline.warnings %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle"></i> Errors and Warnings
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if pipeline.errors %}
+                <h6>Errors</h6>
+                <div class="alert alert-danger">
+                    <ul>
+                        {% for error in pipeline.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                {% if pipeline.warnings %}
+                <h6>Warnings</h6>
+                <div class="alert alert-warning">
+                    <ul>
+                        {% for warning in pipeline.warnings %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Real-time Logs -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-terminal"></i> Execution Logs
+                    </h5>
+                    <button class="btn btn-sm btn-outline-light" onclick="loadPipelineLogs()">
+                        <i class="bi bi-arrow-clockwise"></i> Load Logs
+                    </button>
+                </div>
+            </div>
+            <div class="card-body bg-dark text-light" style="max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace;" id="logContainer">
+                <div id="logContent">
+                    <p class="text-muted">Click "Load Logs" to view execution logs...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleArticlePreview() {
+    const preview = document.getElementById('articlePreview');
+    preview.style.display = preview.style.display === 'none' ? 'block' : 'none';
+}
+
+async function loadPipelineLogs() {
+    const pipelineId = '{{ pipeline.pipeline_id }}';
+    const logContent = document.getElementById('logContent');
+    
+    try {
+        const response = await fetch(`/logs/${pipelineId}`);
+        const data = await response.json();
+        
+        if (data.logs && data.logs.length > 0) {
+            logContent.innerHTML = '';
+            data.logs.forEach(log => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry mb-1';
+                
+                // Color coding based on level
+                let levelColor = '#888';
+                let levelIcon = '●';
+                switch(log.level) {
+                    case 'error': levelColor = '#ff6b6b'; levelIcon = '✗'; break;
+                    case 'warning': levelColor = '#ffd93d'; levelIcon = '⚠'; break;
+                    case 'success': levelColor = '#6bcf7f'; levelIcon = '✓'; break;
+                    case 'info': levelColor = '#4dabf7'; levelIcon = 'ℹ'; break;
+                    case 'metric': levelColor = '#ff6ec7'; levelIcon = '📊'; break;
+                    case 'debug': levelColor = '#868e96'; levelIcon = '🔍'; break;
+                }
+                
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                
+                logEntry.innerHTML = `
+                    <span style="color: ${levelColor}">${levelIcon}</span>
+                    <span style="color: #aaa">[${time}]</span>
+                    <span style="color: #ffd93d">[${log.agent || 'SYSTEM'}]</span>
+                    <span style="color: #fff">${log.message}</span>
+                `;
+                
+                if (log.data && Object.keys(log.data).length > 0) {
+                    const dataDiv = document.createElement('div');
+                    dataDiv.style.marginLeft = '40px';
+                    dataDiv.style.color = '#888';
+                    dataDiv.style.fontSize = '0.9em';
+                    
+                    for (const [key, value] of Object.entries(log.data)) {
+                        const line = document.createElement('div');
+                        line.textContent = `${key}: ${JSON.stringify(value)}`;
+                        dataDiv.appendChild(line);
+                    }
+                    
+                    logEntry.appendChild(dataDiv);
+                }
+                
+                logContent.appendChild(logEntry);
+            });
+        } else {
+            logContent.innerHTML = '<p class="text-muted">No logs available for this pipeline.</p>';
+        }
+    } catch (error) {
+        logContent.innerHTML = `<p class="text-danger">Error loading logs: ${error.message}</p>`;
+    }
+}
+</script>
+{% endblock %}
