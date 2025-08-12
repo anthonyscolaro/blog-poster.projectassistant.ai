@@ -41,7 +41,6 @@ services:
       # Database connection (automatically provided by DO)
       - key: DATABASE_URL
         scope: RUN_TIME
-        type: DATABASE_URL
         value: ${blog-db.DATABASE_URL}
       
       # API Keys (set these via DO dashboard)
@@ -132,17 +131,11 @@ services:
       python scripts/init_database.py
       # Start the application
       uvicorn app:app --host 0.0.0.0 --port 8088
-    
-    # Alerts (optional)
-    alerts:
-      - rule: DEPLOYMENT_FAILED
-      - rule: DOMAIN_FAILED
 
-# Custom domain (optional)
-# domains:
-#   - domain: blog-tools.servicedogus.org
-#     type: PRIMARY
-#     zone: servicedogus.org
+# Custom domain - using blogpost.projectassistant.ai
+domains:
+  - domain: blogpost.projectassistant.ai
+    type: PRIMARY
 
 # Notes:
 # 1. After creating the app, go to the DO dashboard to set SECRET environment variables
