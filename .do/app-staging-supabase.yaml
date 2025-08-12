@@ -1,0 +1,99 @@
+# Digital Ocean App Platform - With Supabase Backend
+name: blog-poster-staging
+region: nyc
+
+services:
+  - name: api
+    github:
+      repo: anthonyscolaro/blog-poster
+      branch: staging
+      deploy_on_push: true
+    
+    dockerfile_path: Dockerfile
+    source_dir: /
+    http_port: 8088
+    
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 90
+      period_seconds: 30
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 5
+    
+    envs:
+      # Supabase Configuration
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: "postgresql://postgres:8wKoi@4nZSjo*XuYg8Ke0&w$@db.nfcjegxskmdlusmlmzte.supabase.co:5432/postgres"
+      
+      - key: SUPABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: SUPABASE_ANON_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: SUPABASE_SERVICE_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      # API Keys from GitHub Secrets
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        
+      - key: JINA_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: WP_USERNAME
+        scope: RUN_TIME
+        type: SECRET
+        
+      - key: WP_APP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      
+      # Application settings
+      - key: ENVIRONMENT
+        scope: RUN_TIME
+        value: "staging"
+        
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: "INFO"
+        
+      - key: WORDPRESS_URL
+        scope: RUN_TIME
+        value: "https://staging.servicedogus.com"
+        
+      - key: WP_VERIFY_SSL
+        scope: RUN_TIME
+        value: "false"
+      
+      # Disable local services
+      - key: REDIS_URL
+        scope: RUN_TIME
+        value: ""
+      
+      - key: QDRANT_URL
+        scope: RUN_TIME
+        value: ""
+    
+    run_command: |
+      python scripts/init_database.py || echo "Database init may fail, continuing..."
+      uvicorn app:app --host 0.0.0.0 --port 8088
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DEPLOYMENT_LIVE
