@@ -8,8 +8,10 @@ RUN apt-get update && apt-get install -y build-essential curl && rm -rf /var/lib
 
 WORKDIR /app
 
-COPY requirements-dashboard.txt requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements-dashboard.txt
+COPY requirements.txt requirements-dashboard.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt || \
+    pip install --no-cache-dir -r requirements-dashboard.txt
 
 COPY . .
 
