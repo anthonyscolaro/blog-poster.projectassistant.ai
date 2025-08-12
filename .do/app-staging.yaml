@@ -1,0 +1,173 @@
+# Digital Ocean App Platform Specification - STAGING
+# Blog Poster Staging Environment
+name: blog-poster-staging
+region: nyc
+
+# PostgreSQL Managed Database (Dev tier for staging)
+databases:
+  - name: staging-db
+    engine: PG
+    version: "15"
+    size: db-s-dev-database  # $7/month (development tier)
+    num_nodes: 1
+
+services:
+  # Main API Service
+  - name: api
+    github:
+      repo: anthonyscolaro/blog-poster
+      branch: staging  # Staging branch for staging environment
+      deploy_on_push: true
+    
+    dockerfile_path: Dockerfile
+    source_dir: /
+    http_port: 8088
+    
+    # Instance configuration (smaller for staging)
+    instance_size_slug: basic-xxs  # $4/month (512MB RAM, 0.5 vCPU)
+    instance_count: 1
+    
+    # Health check
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 30
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 3
+    
+    # Environment variables
+    envs:
+      # Database connection (automatically provided by DO)
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${staging-db.DATABASE_URL}
+      
+      # API Keys (set these via DO dashboard or GitHub secrets)
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: JINA_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      # WordPress Configuration (staging site)
+      - key: WORDPRESS_URL
+        scope: RUN_TIME
+        value: "https://staging.servicedogus.com"  # Update with your staging WP URL
+      
+      - key: WP_USERNAME
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: WP_APP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: WP_VERIFY_SSL
+        scope: RUN_TIME
+        value: "false"  # May need false for staging
+      
+      # Application Configuration
+      - key: ENVIRONMENT
+        scope: RUN_TIME
+        value: "staging"
+      
+      - key: DEBUG
+        scope: RUN_TIME
+        value: "true"
+      
+      - key: MAX_COST_PER_ARTICLE
+        scope: RUN_TIME
+        value: "1.00"  # Lower limits for staging
+      
+      - key: MAX_MONTHLY_COST
+        scope: RUN_TIME
+        value: "50.00"  # Lower limits for staging
+      
+      - key: ARTICLE_MIN_WORDS
+        scope: RUN_TIME
+        value: "500"  # Allow shorter articles for testing
+      
+      - key: ARTICLE_MAX_WORDS
+        scope: RUN_TIME
+        value: "1500"  # Smaller for testing
+      
+      # Feature flags for staging
+      - key: ENABLE_AUTO_PUBLISH
+        scope: RUN_TIME
+        value: "false"  # Manual publishing in staging
+      
+      - key: REQUIRE_HUMAN_APPROVAL
+        scope: RUN_TIME
+        value: "true"
+      
+      # Vector DB (using local for staging)
+      - key: QDRANT_URL
+        scope: RUN_TIME
+        value: "http://localhost:6333"
+      
+      # Redis (optional - using local)
+      - key: REDIS_URL
+        scope: RUN_TIME
+        value: "redis://localhost:6379"
+      
+      # Logging (more verbose for staging)
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: "DEBUG"
+      
+      - key: SQL_ECHO
+        scope: RUN_TIME
+        value: "true"
+    
+    # Run command
+    run_command: |
+      # Initialize database on deployment
+      python scripts/init_database.py || echo "Database already initialized"
+      # Start the application
+      uvicorn app:app --host 0.0.0.0 --port 8088 --reload
+
+# Jobs for one-time tasks
+jobs:
+  # Database migration job
+  - name: db-migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: anthonyscolaro/blog-poster
+      branch: staging
+      deploy_on_push: false
+    
+    dockerfile_path: Dockerfile
+    source_dir: /
+    instance_size_slug: basic-xxs
+    
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${staging-db.DATABASE_URL}
+    
+    run_command: python scripts/init_database.py
+
+# Custom domain for staging (optional)
+# domains:
+#   - domain: staging.blog-poster.com
+#     type: PRIMARY
+
+# Alerts (optional but recommended)
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DEPLOYMENT_LIVE
+  - rule: DOMAIN_FAILED
+
+# Notes:
+# 1. After creating the app, go to the DO dashboard to set SECRET environment variables
+# 2. The DATABASE_URL will be automatically populated by Digital Ocean
+# 3. Total estimated cost for staging: ~$11/month (DB: $7, App: $4)
+# 4. To deploy: doctl apps create --spec .do/app-staging.yaml
+# 5. GitHub Actions will auto-deploy on push to 'staging' branch
