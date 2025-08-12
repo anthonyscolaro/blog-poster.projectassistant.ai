@@ -14,17 +14,10 @@ import json
 import httpx
 from pydantic import BaseModel, Field
 import numpy as np
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance, 
-    VectorParams, 
-    PointStruct,
-    Filter,
-    FieldCondition,
-    MatchValue,
-    SearchRequest,
-    UpdateStatus
-)
+import asyncpg
+from typing import Tuple
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 # For embeddings, we'll use OpenAI or a local model
 try:
@@ -60,13 +53,13 @@ class SearchResult(BaseModel):
 
 class VectorSearchManager:
     """
-    Manages vector search operations with Qdrant
+    Manages vector search operations with pgvector in PostgreSQL
     """
     
-    # Collection names
-    ARTICLES_COLLECTION = "blog_articles"
-    COMPETITORS_COLLECTION = "competitor_content"
-    RESEARCH_COLLECTION = "research_docs"
+    # Table names (replacing Qdrant collections)
+    ARTICLES_TABLE = "articles"
+    COMPETITORS_TABLE = "competitor_content"
+    RESEARCH_TABLE = "research_docs"
     
     # Embedding configuration
     EMBEDDING_DIMENSION = 1536  # OpenAI ada-002 dimension
@@ -75,22 +68,23 @@ class VectorSearchManager:
     
     def __init__(
         self,
-        qdrant_url: Optional[str] = None,
+        database_url: Optional[str] = None,
         openai_api_key: Optional[str] = None,
-        collection_name: Optional[str] = None
+        table_name: Optional[str] = None
     ):
         """
         Initialize the vector search manager
         
         Args:
-            qdrant_url: Qdrant server URL (default: localhost:6333)
+            database_url: PostgreSQL connection URL
             openai_api_key: OpenAI API key for embeddings
-            collection_name: Default collection to use
+            table_name: Default table to use
         """
-        # Qdrant client
-        self.qdrant_url = qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333")
-        self.client = QdrantClient(url=self.qdrant_url)
-        logger.info(f"Connected to Qdrant at {self.qdrant_url}")
+        # Database connection
+        self.database_url = database_url or os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5434/postgres")
+        self.conn = None
+        self._connect()
+        logger.info(f"Connected to PostgreSQL with pgvector")
         
         # OpenAI client for embeddings
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
@@ -102,11 +96,11 @@ class VectorSearchManager:
             except Exception as e:
                 logger.warning(f"Could not initialize OpenAI client: {e}")
         
-        # Default collection
-        self.collection_name = collection_name or self.ARTICLES_COLLECTION
+        # Default table
+        self.table_name = table_name or self.ARTICLES_TABLE
         
-        # Initialize collections
-        self._initialize_collections()
+        # Ensure pgvector extension is enabled
+        self._initialize_pgvector()
     
     def _initialize_collections(self):
         """Initialize Qdrant collections if they don't exist"""
