@@ -523,6 +523,11 @@ All documentation is organized in the `docs/` directory:
 
 ## 📁 Project Structure
 
+  - Application: http://localhost:8088/
+  - Login: http://localhost:8088/auth/login
+  - Register: http://localhost:8088/auth/register
+  - Qdrant Dashboard: http://localhost:6333/dashboard
+
 ```
 blog-poster/
 ├── app.py                    # Main FastAPI application

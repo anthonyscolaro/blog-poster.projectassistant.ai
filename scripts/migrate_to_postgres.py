@@ -102,6 +102,8 @@ class DataMigrator:
     
     def prepare_article_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare article data for database insertion"""
+        import json
+        
         # Map JSON fields to database columns
         article_data = {
             'title': data.get('title', ''),
@@ -121,10 +123,23 @@ class DataMigrator:
             'wp_tags': data.get('tags', []),
             'word_count': data.get('word_count'),
             'reading_time': data.get('reading_time'),
-            'internal_links': data.get('internal_links', 0),
-            'external_links': data.get('external_links', 0),
             'status': data.get('status', 'draft')
         }
+        
+        # Handle internal and external links
+        # If they're lists of dicts, count them; if they're already numbers, use them
+        internal_links = data.get('internal_links', [])
+        external_links = data.get('external_links', [])
+        
+        if isinstance(internal_links, list):
+            article_data['internal_links'] = len(internal_links)
+        else:
+            article_data['internal_links'] = internal_links or 0
+            
+        if isinstance(external_links, list):
+            article_data['external_links'] = len(external_links)
+        else:
+            article_data['external_links'] = external_links or 0
         
         # Handle dates
         if 'published_at' in data and data['published_at']:

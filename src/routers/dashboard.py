@@ -7,8 +7,8 @@ import json as json_lib
 import logging
 from datetime import datetime
 from typing import Dict, Any
-from fastapi import APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect, Depends
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import markdown
 
@@ -16,6 +16,7 @@ from src.services.orchestration_manager import OrchestrationManager
 from src.services.vector_search import VectorSearchManager
 from src.services.pipeline_logger import pipeline_logger
 from src.services.api_keys_manager import get_api_keys_manager
+from src.routers.auth import get_current_user_optional, get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,21 @@ def get_vector_manager():
 
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard_home(request: Request):
-    """Main dashboard page"""
+async def root_handler(request: Request, current_user=Depends(get_current_user_optional)):
+    """
+    Root route handler - redirects to login or dashboard based on authentication
+    """
+    if current_user:
+        # User is authenticated, redirect to dashboard
+        return RedirectResponse("/dashboard", status_code=302)
+    else:
+        # User is not authenticated, redirect to login
+        return RedirectResponse("/auth/login", status_code=302)
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_home(request: Request, current_user=Depends(get_current_user)):
+    """Main dashboard page - requires authentication"""
     try:
         # Get system status
         orchestration_status = get_orchestration_manager()
@@ -64,7 +78,8 @@ async def dashboard_home(request: Request):
             "title": "Blog Poster Dashboard",
             "pipeline_stats": pipeline_stats,
             "vector_stats": vector_stats,
-            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "current_user": current_user
         }
         
         return templates.TemplateResponse("dashboard.html", context)

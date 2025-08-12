@@ -1,22 +1,35 @@
-.PHONY: help format lint test test-unit test-integration test-docker test-all clean install install-dev up down restart logs shell
+.PHONY: help format lint test test-unit test-integration test-docker test-all clean install install-dev up down restart logs shell setup dev dev-bg status urls
 
 help:
-	@echo "Available commands:"
+	@echo "🔧 Blog Poster Development Commands"
+	@echo ""
+	@echo "🚀 Setup & Development:"
+	@echo "  make setup          - Complete development environment setup"
+	@echo "  make dev            - Start development server"
+	@echo "  make dev-bg         - Start development server in background"
 	@echo "  make install        - Install production dependencies"
 	@echo "  make install-dev    - Install development dependencies"
-	@echo "  make format         - Format code with black and isort"
-	@echo "  make lint           - Run linting with flake8 and mypy"
+	@echo ""
+	@echo "🧪 Testing & Quality:"
 	@echo "  make test           - Run comprehensive test suite"
 	@echo "  make test-unit      - Run unit tests only"
 	@echo "  make test-integration - Run integration tests"
 	@echo "  make test-docker    - Run Docker integration tests"
 	@echo "  make test-all       - Run all tests including Docker and style"
-	@echo "  make clean          - Remove cache files"
+	@echo "  make format         - Format code with black and isort"
+	@echo "  make lint           - Run linting with flake8 and mypy"
+	@echo ""
+	@echo "🐳 Docker Services:"
 	@echo "  make up             - Start Docker containers"
 	@echo "  make down           - Stop Docker containers"
 	@echo "  make restart        - Restart Docker containers"
+	@echo "  make status         - Show service status"
 	@echo "  make logs           - Show API logs"
-	@echo "  make shell          - Open shell in API container"
+	@echo "  make shell          - Open database shell"
+	@echo ""
+	@echo "🧹 Cleanup & Utils:"
+	@echo "  make clean          - Remove cache files"
+	@echo "  make urls           - Show development URLs"
 
 install:
 	pip install -r requirements.txt
@@ -71,4 +84,47 @@ logs:
 	docker compose logs -f api
 
 shell:
-	docker exec -it blog-api /bin/bash
+	docker exec -it blog-vectors psql -U postgres -d blog_poster
+
+# New development commands
+setup:
+	@echo "🚀 Setting up development environment..."
+	chmod +x scripts/dev-setup.sh
+	./scripts/dev-setup.sh
+
+dev:
+	@echo "🔥 Starting development server..."
+	@if [ ! -f .env.local ]; then echo "❌ .env.local not found. Run 'make setup' first."; exit 1; fi
+	export $$(cat .env.local | grep -v '^#' | xargs) && python app.py
+
+dev-bg:
+	@echo "🔥 Starting development server in background..."
+	@if [ ! -f .env.local ]; then echo "❌ .env.local not found. Run 'make setup' first."; exit 1; fi
+	export $$(cat .env.local | grep -v '^#' | xargs) && nohup python app.py > app.log 2>&1 &
+	@echo "✅ Server started at http://localhost:8088"
+	@echo "📋 View logs with: make logs"
+
+status:
+	@echo "📊 Service Status:"
+	@docker compose ps
+	@echo ""
+	@echo "🔍 Health Checks:"
+	@echo -n "PostgreSQL: "
+	@if docker exec blog-vectors pg_isready -U postgres >/dev/null 2>&1; then echo "✅ Healthy"; else echo "❌ Unhealthy"; fi
+	@echo -n "Qdrant: "
+	@if curl -s http://localhost:6333 >/dev/null; then echo "✅ Healthy"; else echo "❌ Unhealthy"; fi
+	@echo -n "Redis: "
+	@if docker exec blog-redis redis-cli ping >/dev/null 2>&1; then echo "✅ Healthy"; else echo "❌ Unhealthy"; fi
+
+urls:
+	@echo "🌐 Development URLs:"
+	@echo "  Application:  http://localhost:8088 (redirects to login or dashboard)"
+	@echo "  Login:        http://localhost:8088/auth/login"
+	@echo "  Register:     http://localhost:8088/auth/register"
+	@echo "  Dashboard:    http://localhost:8088/dashboard (requires login)"
+	@echo ""
+	@echo "🔧 Service URLs:"
+	@echo "  PostgreSQL:   localhost:5433"
+	@echo "  Qdrant:       http://localhost:6333"
+	@echo "  Qdrant UI:    http://localhost:6333/dashboard"
+	@echo "  Redis:        localhost:6384"
