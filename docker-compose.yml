@@ -1,17 +1,22 @@
 
 
-# Compose stack for the Article Generation Agent tool shim
+# Blog-Poster Development Stack with Supabase
 # Services:
-#  - api: FastAPI shim exposing /agent/run and /seo/lint
-#  - qdrant: Vector store (semantic search, internal link resolver)
-#  - vectors: Postgres+pgvector sidecar (optional; handy for analytics/offline jobs)
-#  - redis: Queue/cache if you later add workers (not required for the shim demo)
+#  - api: FastAPI application
+#  - supabase-db: PostgreSQL with pgvector (replaces Qdrant)
+#  - supabase-auth: GoTrue authentication service
+#  - supabase-rest: PostgREST API
+#  - supabase-realtime: Realtime subscriptions
+#  - supabase-storage: S3-compatible object storage
+#  - supabase-kong: API Gateway
+#  - supabase-studio: Supabase Studio UI
+#  - redis: Queue/cache for background jobs
 #
 # Usage:
-#   1) Create a .env with at least: ANTHROPIC_API_KEY=... (and optional SYSTEM_PROMPT)
-#   2) Ensure your repo has app.py (the FastAPI file from the canvas) and requirements.txt
-#   3) docker compose up --build
-#   4) Hit http://localhost:8088/seo/lint or POST to http://localhost:8088/agent/run
+#   1) Copy .env.supabase.example to .env.local
+#   2) docker compose up -d
+#   3) Access Supabase Studio at http://localhost:3100
+#   4) Access API at http://localhost:8088
 
 services:
   api:
@@ -21,21 +26,24 @@ services:
     env_file:
       - .env.local
     environment:
-      VECTOR_BACKEND: qdrant
-      QDRANT_URL: http://qdrant:6333
       PYTHONUNBUFFERED: "1"
-      # Database URL for PostgreSQL
-      DATABASE_URL: postgresql://postgres:postgres@vectors:5432/blog_poster
-      # Local dev: point to host machine WordPress (port +4)
-      WORDPRESS_URL: ${WORDPRESS_LOCAL_URL:-http://host.docker.internal:${WORDPRESS_HTTP_PORT:-8084}}
+      # Use Supabase for both database and vector storage
+      DATABASE_URL: postgresql://postgres:your-super-secret-password@supabase-db:5432/postgres
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU}
+      # Redis for caching
+      REDIS_URL: redis://redis:6379
+      # WordPress URL
+      WORDPRESS_URL: ${WORDPRESS_LOCAL_URL:-http://host.docker.internal:8084}
     volumes:
       - ./:/app
     ports:
       - "8088:8088"
     depends_on:
-      qdrant:
-        condition: service_started
-      vectors:
+      supabase-db:
+        condition: service_healthy
+      redis:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8088/health >/dev/null 2>&1 || exit 1"]
@@ -43,33 +51,132 @@ services:
       timeout: 5s
       retries: 10
 
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: blog-qdrant
-    restart: unless-stopped
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_storage:/qdrant/storage
-    # No healthcheck: container runs fast; API will retry if needed
-
-  vectors:
-    image: pgvector/pgvector:pg16
-    container_name: blog-vectors
+  # Supabase Services
+  supabase-db:
+    image: supabase/postgres:15.1.0.117
+    container_name: supabase-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: blog_poster
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-password}
+      POSTGRES_DB: postgres
     ports:
-      - "5433:5432"  # avoid clashing with a local Postgres
+      - "5434:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./scripts/init-pgvector.sql:/docker-entrypoint-initdb.d/10-pgvector.sql:ro
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d blog_poster"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 10
+
+  supabase-auth:
+    image: supabase/gotrue:v2.99.0
+    container_name: supabase-auth
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-your-super-secret-password}@supabase-db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:8088}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      GOTRUE_JWT_EXP: 3600
+    ports:
+      - "9999:9999"
+
+  supabase-rest:
+    image: postgrest/postgrest:v11.2.0
+    container_name: supabase-rest
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-your-super-secret-password}@supabase-db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+
+  supabase-realtime:
+    image: supabase/realtime:v2.25.35
+    container_name: supabase-realtime
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: supabase-db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-password}
+      DB_NAME: postgres
+      DB_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      SECURE_CHANNELS: "false"
+      PORT: 4000
+
+  supabase-storage:
+    image: supabase/storage-api:v0.43.11
+    container_name: supabase-storage
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      supabase-rest:
+        condition: service_started
+    restart: unless-stopped
+    environment:
+      ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}
+      SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU}
+      POSTGREST_URL: http://supabase-rest:3000
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD:-your-super-secret-password}@supabase-db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+    volumes:
+      - supabase-storage-data:/var/lib/storage
+
+  supabase-kong:
+    image: kong:2.8.1
+    container_name: supabase-kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_LOG_LEVEL: info
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./supabase/kong.yml:/var/lib/kong/kong.yml:ro
+
+  supabase-studio:
+    image: supabase/studio:20231123-64a766a
+    container_name: supabase-studio
+    restart: unless-stopped
+    environment:
+      STUDIO_PG_META_URL: http://postgres-meta:3000
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-password}
+      DEFAULT_ORGANIZATION: Default
+      DEFAULT_PROJECT: Default
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU}
+    ports:
+      - "3100:3000"
+    depends_on:
+      supabase-db:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
@@ -82,6 +189,6 @@ services:
       - redis_data:/data
 
 volumes:
-  qdrant_storage:
-  pg_data:
+  supabase-db-data:
+  supabase-storage-data:
   redis_data:
