@@ -290,7 +290,7 @@ For more information about {topic.topic}, consult with qualified professionals a
             else:
                 return WordPressResult(
                     success=False,
-                    error=result.get('error', 'Unknown error')
+                    error=result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
                 )
                 
         except Exception as e:
@@ -415,3 +415,30 @@ For more information about {topic.topic}, consult with qualified professionals a
         except Exception as e:
             logger.error(f"Failed to get active pipelines: {e}")
             return []
+    
+    def get_cost_summary(self) -> Dict[str, float]:
+        """Get cost summary across all pipeline executions"""
+        try:
+            with get_db_session() as db:
+                pipeline_repo = PipelineRepository(db)
+                pipelines = pipeline_repo.get_all()
+                
+                total_cost = sum(float(p.total_cost or 0) for p in pipelines)
+                successful_runs = len([p for p in pipelines if p.status == 'completed'])
+                avg_cost = total_cost / len(pipelines) if pipelines else 0
+                
+                return {
+                    "total_cost": round(total_cost, 4),
+                    "average_cost": round(avg_cost, 4),
+                    "executions": len(pipelines),
+                    "successful_runs": successful_runs
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to get cost summary: {e}")
+            return {
+                "total_cost": 0.0,
+                "average_cost": 0.0,
+                "executions": 0,
+                "successful_runs": 0
+            }
