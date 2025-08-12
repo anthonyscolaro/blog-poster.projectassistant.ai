@@ -54,6 +54,7 @@ from src.routers import (
     dashboard_router,
     profile_router
 )
+from src.routers.auth import router as auth_router
 
 # ------------------------------
 # FastAPI App Setup
@@ -77,6 +78,7 @@ os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Include all routers
+app.include_router(auth_router)  # Authentication routes
 app.include_router(health_router)
 app.include_router(articles_router)
 app.include_router(wordpress_router)
