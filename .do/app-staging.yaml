@@ -16,7 +16,7 @@ services:
   - name: api
     github:
       repo: anthonyscolaro/blog-poster
-      branch: dev  # Staging uses dev branch
+      branch: staging  # Staging branch for staging environment
       deploy_on_push: true
     
     dockerfile_path: Dockerfile
@@ -140,7 +140,7 @@ jobs:
     kind: PRE_DEPLOY
     github:
       repo: anthonyscolaro/blog-poster
-      branch: dev
+      branch: staging
       deploy_on_push: false
     
     dockerfile_path: Dockerfile
@@ -170,4 +170,4 @@ alerts:
 # 2. The DATABASE_URL will be automatically populated by Digital Ocean
 # 3. Total estimated cost for staging: ~$11/month (DB: $7, App: $4)
 # 4. To deploy: doctl apps create --spec .do/app-staging.yaml
-# 5. GitHub Actions will auto-deploy on push to 'dev' branch
+# 5. GitHub Actions will auto-deploy on push to 'staging' branch

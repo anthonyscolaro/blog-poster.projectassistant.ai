@@ -13,7 +13,7 @@ echo ""
 # Configuration
 APP_NAME="blog-poster-staging"
 REGION="nyc"  # New York region
-BRANCH="dev"  # Staging branch
+BRANCH="staging"  # Staging branch
 
 # Check if doctl is installed
 if ! command -v doctl &> /dev/null; then

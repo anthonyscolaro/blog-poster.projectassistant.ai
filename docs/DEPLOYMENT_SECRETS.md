@@ -97,8 +97,8 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 Once secrets are configured:
 
-1. **Push to `dev` branch** → Automatically deploys to staging
-2. **Push to `main` branch** → Automatically deploys to production (if configured)
+1. **Push to `staging` branch** → Automatically deploys to staging environment
+2. **Push to `main` branch** → Automatically deploys to production (when configured)
 
 The GitHub Action will:
 - Run tests
@@ -106,6 +106,11 @@ The GitHub Action will:
 - Push to DO Container Registry
 - Deploy to App Platform
 - Run smoke tests
+
+### Branch Strategy
+- `dev` → Active development branch
+- `staging` → Staging environment (auto-deploys)
+- `main` → Production environment (auto-deploys when configured)
 
 ### Manual Deployment (CLI)
 

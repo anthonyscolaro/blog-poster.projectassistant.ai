@@ -127,9 +127,9 @@ cd /opt/blog-poster
 
 # Clone or update repository
 if [ -d ".git" ]; then
-    git pull origin dev
+    git pull origin staging
 else
-    git clone -b dev https://github.com/anthonyscolaro/blog-poster.git .
+    git clone -b staging https://github.com/anthonyscolaro/blog-poster.git .
 fi
 
 # Create staging environment file if it doesn't exist
