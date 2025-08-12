@@ -29,19 +29,22 @@ services:
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
-        value: "postgresql://postgres:8wKoi@4nZSjo*XuYg8Ke0&w$@db.nfcjegxskmdlusmlmzte.supabase.co:5432/postgres"
+        value: "postgresql://postgres:@6PZkNhK%G@ekmoCef$iKLT*@db.fwrfexwmfrpavcpyivpw.supabase.co:5432/postgres"
       
       - key: SUPABASE_URL
         scope: RUN_TIME
         type: SECRET
+        value: "https://fwrfexwmfrpavcpyivpw.supabase.co"
       
       - key: SUPABASE_ANON_KEY
         scope: RUN_TIME
         type: SECRET
+        value: "sb_publishable_fnYvoX8ffvNb28ix5Nq0JA_fsX9dkwz"
       
       - key: SUPABASE_SERVICE_KEY
         scope: RUN_TIME
         type: SECRET
+        value: "sb_secret_ajuLLH6XJHc4HykIZv_hmA_ezsYZFBq"
       
       # API Keys from GitHub Secrets
       - key: ANTHROPIC_API_KEY
