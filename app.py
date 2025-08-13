@@ -61,13 +61,21 @@ from src.routers.auth import router as auth_router
 # ------------------------------
 app = FastAPI(title="Blog Poster Dashboard", version="2.0.0")
 
-# Add CORS middleware
+# Add CORS middleware - SECURITY: Restrict origins
+ALLOWED_ORIGINS = [
+    "https://servicedogus.com",
+    "https://staging-wp.servicedogus.org", 
+    "http://localhost:8084",  # Local WordPress
+    "http://localhost:3000",  # Local development
+    "http://localhost:8088",  # Local API
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,  # FIXED: No more wildcards!
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 
 # Create directories if they don't exist
