@@ -9,6 +9,9 @@
       "Bash(python:*)",
       "Bash(mkdir:*)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "/Users/anthonyscolaro/shared-docs/supabase"
+    ]
   }
 }

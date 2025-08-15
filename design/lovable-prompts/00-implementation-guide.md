@@ -1,3 +1,7 @@
+# Note to Lovable
+
+Please study this implementation guide but don't try to create a website yet. Wait for me to give the next prompt after and just learn about the project from my guide for now:
+
 # Implementation Guide: Blog-Poster MicroSaaS Platform
 
 ## 🚀 IMPORTANT: Complete MicroSaaS Implementation
@@ -181,7 +185,11 @@ This guide provides the complete blueprint for building Blog-Poster as a multi-t
 
 Execute these prompts in this EXACT order for proper setup:
 
-1. **`09-supabase-setup.md`** - Create Supabase project and multi-tenant database FIRST
+1. **Supabase Setup (4 parts - run in order)**:
+   - **`09a-supabase-setup-core.md`** - Core tables and extensions
+   - **`09b-supabase-setup-tables.md`** - Additional tables and relationships  
+   - **`09c-supabase-setup-security.md`** - RLS policies and security functions
+   - **`09d-supabase-setup-views.md`** - Views, storage, and final configuration
 2. **`01a-project-base.md`** - Basic React + Vite setup with dependencies
 3. **`08-shared-components.md`** - Reusable UI component library
 4. **`23-ui-ux-polish.md`** - Loading states, empty states, error handling, mobile nav
