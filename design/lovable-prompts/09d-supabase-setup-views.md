@@ -263,7 +263,7 @@ RETURNS TABLE(
   details JSONB
 ) 
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_catalog
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -321,7 +321,7 @@ CREATE OR REPLACE FUNCTION public.check_rate_limit(
 )
 RETURNS BOOLEAN 
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_catalog
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -392,6 +392,79 @@ ORDER BY table_name;
 
 -- Test health check
 SELECT * FROM public.get_system_health();
+```
+
+### Step 8: Security Hardening Verification
+
+```sql
+-- Ensure all tables have RLS enabled
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT tablename 
+        FROM pg_tables 
+        WHERE schemaname = 'public' 
+        AND tablename NOT IN ('schema_migrations', 'supabase_functions_migrations')
+        AND NOT rowsecurity
+    ) LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', r.tablename);
+        RAISE NOTICE 'Enabled RLS on table: %', r.tablename;
+    END LOOP;
+END $$;
+
+-- Verify all functions have proper search_path
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT proname 
+        FROM pg_proc 
+        WHERE pronamespace = 'public'::regnamespace
+        AND prosecdef = true
+        AND proconfig IS NULL OR NOT (proconfig @> ARRAY['search_path=public, pg_catalog'])
+    ) LOOP
+        RAISE WARNING 'Function % lacks proper search_path setting', r.proname;
+    END LOOP;
+END $$;
+
+-- Create additional performance indexes
+CREATE INDEX IF NOT EXISTS idx_profiles_organization_id ON public.profiles(organization_id);
+CREATE INDEX IF NOT EXISTS idx_articles_organization_id ON public.articles(organization_id);
+CREATE INDEX IF NOT EXISTS idx_pipelines_organization_id ON public.pipelines(organization_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_organization_id ON audit.audit_log(organization_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit.audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_articles_status ON public.articles(status);
+CREATE INDEX IF NOT EXISTS idx_pipelines_status ON public.pipelines(status);
+
+-- Refresh database statistics for query optimization
+ANALYZE;
+
+-- Verification queries
+-- Check all tables have RLS enabled
+SELECT tablename, rowsecurity 
+FROM pg_tables 
+WHERE schemaname = 'public' 
+AND tablename NOT IN ('schema_migrations', 'supabase_functions_migrations')
+ORDER BY tablename;
+
+-- Check views don't have SECURITY DEFINER
+SELECT viewname 
+FROM pg_views 
+WHERE schemaname = 'public' 
+AND definition LIKE '%SECURITY DEFINER%';
+
+-- Check functions have proper search_path
+SELECT proname, proconfig
+FROM pg_proc 
+WHERE pronamespace = 'public'::regnamespace
+AND prosecdef = true;
+
+-- Test organization data isolation
+-- This should only return data for the current user's organization
+SELECT * FROM public.organization_dashboard;
 ```
 
 ## 🎉 Setup Complete!

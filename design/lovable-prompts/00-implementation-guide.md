@@ -185,12 +185,11 @@ This guide provides the complete blueprint for building Blog-Poster as a multi-t
 
 Execute these prompts in this EXACT order for proper setup:
 
-1. **Supabase Setup (5 parts - run in order)**:
+1. **Supabase Setup (4 parts - run in order)**:
    - **`09a-supabase-setup-core.md`** - Core tables and extensions
    - **`09b-supabase-setup-tables.md`** - Additional tables and relationships  
-   - **`09c-supabase-setup-security.md`** - RLS policies and security functions
-   - **`09d-supabase-setup-views.md`** - Views, storage, and final configuration
-   - **`09e-supabase-security-fixes.md`** - Critical security fixes (RUN AFTER 09d)
+   - **`09c-supabase-setup-security.md`** - RLS policies, security functions, and audit log RLS
+   - **`09d-supabase-setup-views.md`** - Views, storage, security hardening, and final configuration
 2. **`01a-project-base.md`** - Basic React + Vite setup with dependencies
 3. **`02-authentication-improved.md`** - Enhanced auth with multi-tenancy (USE THIS INSTEAD OF 02-authentication.md)
 4. **`08-shared-components.md`** - Reusable UI component library

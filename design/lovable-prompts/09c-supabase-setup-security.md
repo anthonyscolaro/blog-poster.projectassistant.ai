@@ -256,6 +256,30 @@ CREATE POLICY "System can manage rate limits" ON public.rate_limits
       WHERE profiles.id = auth.uid()
     )
   );
+
+-- Audit log policies (audit schema)
+ALTER TABLE audit.audit_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their organization's audit logs" ON audit.audit_log
+  FOR SELECT USING (
+    organization_id IN (
+      SELECT organization_id FROM public.profiles 
+      WHERE profiles.id = auth.uid()
+    )
+  );
+
+CREATE POLICY "System can insert audit logs" ON audit.audit_log
+  FOR INSERT WITH CHECK (true);
+
+-- Only admins and owners can delete audit logs (for compliance)
+CREATE POLICY "Admins can manage audit logs" ON audit.audit_log
+  FOR DELETE USING (
+    organization_id IN (
+      SELECT organization_id FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.role IN ('owner', 'admin')
+    )
+  );
 ```
 
 ### Step 6: Create User Signup Handler Function
@@ -265,7 +289,7 @@ CREATE POLICY "System can manage rate limits" ON public.rate_limits
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER 
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_catalog
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -376,7 +400,7 @@ CREATE TRIGGER update_organization_api_keys_updated_at BEFORE UPDATE ON public.o
 CREATE OR REPLACE FUNCTION public.check_budget_limit(p_organization_id UUID)
 RETURNS BOOLEAN 
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_catalog
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -445,7 +469,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.update_monthly_cost()
 RETURNS TRIGGER 
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_catalog
 LANGUAGE plpgsql
 AS $$
 BEGIN
@@ -485,7 +509,7 @@ CREATE TRIGGER update_org_monthly_cost
 CREATE OR REPLACE FUNCTION public.initialize_organization_defaults()
 RETURNS TRIGGER 
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_catalog
 LANGUAGE plpgsql
 AS $$
 BEGIN
