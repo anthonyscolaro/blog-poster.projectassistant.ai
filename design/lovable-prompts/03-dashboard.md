@@ -19,11 +19,13 @@ Create a comprehensive dashboard for the Blog-Poster platform that displays real
 
 **Dashboard Components:**
 
-### Key Metrics Grid
+### Animated Key Metrics Grid
 ```typescript
 // src/components/dashboard/MetricsGrid.tsx
 import { useQuery } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import { apiClient } from '@/services/api'
+import { StaggerContainer, AnimatedCounter, FadeInSection } from '@/components/ui/AnimatedComponents'
 import {
   FileText,
   DollarSign,
@@ -95,47 +97,74 @@ export function MetricsGrid() {
   ]
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {cards.map((card, index) => (
-        <div
+        <motion.div
           key={index}
-          className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700"
+          className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200"
+          whileHover={{ y: -2 }}
+          transition={{ type: "spring", stiffness: 300 }}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className={`p-3 rounded-lg ${card.bgColor} dark:bg-opacity-20`}>
+            <motion.div 
+              className={`p-3 rounded-lg ${card.bgColor} dark:bg-opacity-20`}
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
               <card.icon className={`h-6 w-6 ${card.color}`} />
-            </div>
+            </motion.div>
             {card.badge && (
-              <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                isOverBudget ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-              }`}>
+              <motion.span 
+                className={`text-sm font-medium px-2 py-1 rounded-full ${
+                  isOverBudget ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                }`}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: index * 0.1 + 0.3, type: "spring" }}
+              >
                 {card.badge}
-              </span>
+              </motion.span>
             )}
           </div>
           <div>
             <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
               {card.title}
             </p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-              {card.value}
-            </p>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+              {card.title === 'Monthly Articles' || card.title === 'Today\'s Articles' ? (
+                <AnimatedCounter 
+                  value={parseInt(card.value)} 
+                  duration={1.5} 
+                />
+              ) : card.title === 'Monthly Cost' || card.title === 'Today\'s Cost' ? (
+                <AnimatedCounter 
+                  value={parseFloat(card.value.replace('$', ''))} 
+                  prefix="$" 
+                  decimals={2}
+                  duration={1.5}
+                />
+              ) : (
+                card.value
+              )}
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {card.subtitle}
             </p>
           </div>
-        </div>
+        </motion.div>
       ))}
-    </div>
+    </StaggerContainer>
   )
 }
 ```
 
-### Pipeline Status Component
+### Animated Pipeline Status Component
 ```typescript
 // src/components/dashboard/PipelineStatus.tsx
 import { useQuery } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
 import { apiClient } from '@/services/api'
+import { FadeInSection, PulseEffect } from '@/components/ui/AnimatedComponents'
 import { Workflow, Circle, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 
 interface PipelineExecution {
@@ -197,58 +226,142 @@ export function PipelineStatus() {
             </span>
           </div>
           
-          {/* Agent Progress */}
-          <div className="space-y-3">
+          {/* Animated Agent Progress */}
+          <motion.div 
+            className="space-y-3"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 1 },
+              visible: {
+                opacity: 1,
+                transition: {
+                  staggerChildren: 0.1
+                }
+              }
+            }}
+          >
             {AGENTS.map((agent, index) => {
               const isCompleted = currentExecution.agentsCompleted.includes(agent.id)
               const isCurrent = currentExecution.currentAgent === agent.id
               const isFailed = currentExecution.status === 'failed' && isCurrent
               
               return (
-                <div key={agent.id} className="flex items-center gap-3">
-                  <span className="text-lg">{agent.icon}</span>
+                <motion.div 
+                  key={agent.id} 
+                  className="flex items-center gap-3"
+                  variants={{
+                    hidden: { x: -20, opacity: 0 },
+                    visible: { x: 0, opacity: 1 }
+                  }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <motion.span 
+                    className="text-lg"
+                    animate={isCurrent ? { 
+                      scale: [1, 1.2, 1],
+                      rotate: [0, 10, -10, 0]
+                    } : { scale: 1 }}
+                    transition={{ 
+                      duration: isCurrent ? 2 : 0.3, 
+                      repeat: isCurrent ? Infinity : 0 
+                    }}
+                  >
+                    {agent.icon}
+                  </motion.span>
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <span className={`text-sm font-medium transition-colors duration-300 ${
+                        isCurrent ? 'text-blue-600 dark:text-blue-400' : 
+                        isCompleted ? 'text-green-600 dark:text-green-400' :
+                        'text-gray-700 dark:text-gray-300'
+                      }`}>
                         {agent.name}
                       </span>
-                      {isCompleted && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                      {isCurrent && !isFailed && (
-                        <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-                      )}
-                      {isFailed && (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
+                      <AnimatePresence mode="wait">
+                        {isCompleted && (
+                          <motion.div
+                            key="completed"
+                            initial={{ scale: 0, rotate: -180 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            exit={{ scale: 0, rotate: 180 }}
+                            transition={{ type: "spring", stiffness: 300 }}
+                          >
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          </motion.div>
+                        )}
+                        {isCurrent && !isFailed && (
+                          <motion.div
+                            key="current"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
+                          >
+                            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                          </motion.div>
+                        )}
+                        {isFailed && (
+                          <motion.div
+                            key="failed"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
+                          >
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-500 ${
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        className={`h-2 rounded-full ${
                           isCompleted
-                            ? 'bg-green-500 w-full'
+                            ? 'bg-green-500'
                             : isCurrent
-                            ? 'bg-blue-500 w-1/2 animate-pulse'
+                            ? 'bg-blue-500'
                             : isFailed
-                            ? 'bg-red-500 w-1/2'
-                            : 'bg-gray-300 w-0'
+                            ? 'bg-red-500'
+                            : 'bg-gray-300'
                         }`}
+                        initial={{ width: '0%' }}
+                        animate={{ 
+                          width: isCompleted ? '100%' : 
+                                isCurrent ? '50%' : 
+                                isFailed ? '50%' : '0%'
+                        }}
+                        transition={{ 
+                          duration: 0.5,
+                          ease: "easeOut"
+                        }}
                       />
                     </div>
                   </div>
-                </div>
+                </motion.div>
               )
             })}
-          </div>
+          </motion.div>
 
-          {/* Error Message */}
-          {currentExecution.errorMessage && (
-            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">
-                {currentExecution.errorMessage}
-              </p>
-            </div>
-          )}
+          {/* Animated Error Message */}
+          <AnimatePresence>
+            {currentExecution.errorMessage && (
+              <motion.div 
+                className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <motion.p 
+                  className="text-sm text-red-600 dark:text-red-400"
+                  initial={{ x: -10 }}
+                  animate={{ x: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  {currentExecution.errorMessage}
+                </motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

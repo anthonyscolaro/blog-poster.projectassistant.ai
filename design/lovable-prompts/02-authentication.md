@@ -12,6 +12,8 @@ Implement secure authentication for the Blog-Poster platform using Supabase's Go
 - Protected routes
 - Session persistence
 - Row-level security for multi-tenant data
+- React 19 Actions for form submissions with automatic pending states
+- Enhanced error boundaries for auth failures
 
 ## Prompt for Lovable:
 

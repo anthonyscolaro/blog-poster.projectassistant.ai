@@ -13,6 +13,8 @@ Implementing comprehensive API integration layer to connect the Blog-Poster dash
 - Mock data fallbacks when API unavailable
 - Request/response interceptors for authentication
 - Loading states and optimistic updates
+- React 19 use() hook for promise-based data fetching
+- Server Components for initial data loading where applicable
 
 ## Prompt for Lovable:
 
