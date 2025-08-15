@@ -103,6 +103,28 @@
 - [ ] Configure domain and DNS
 - [ ] Create deployment scripts
 
+### Infrastructure & Local Development Setup
+- [ ] **Implement Supabase Cloud to Local Sync** (Priority: High)
+  - [ ] Choose sync method from `docs/SUPABASE-LOCAL-SYNC.md`
+  - [ ] Set up local Supabase with Docker Compose
+  - [ ] Configure automated sync script (`sync-supabase.sh`)
+  - [ ] Test database migration export/import
+  - [ ] Verify RLS policies work locally
+  
+- [ ] **Complete Security Hardening** (Priority: High)
+  - [ ] Review and apply fixes from `design/lovable-prompts/09f-remaining-security-fixes.md`
+  - [ ] Verify all views are without SECURITY DEFINER
+  - [ ] Confirm audit log RLS is properly configured
+  - [ ] Run security verification queries
+  - [ ] Address OTP expiry configuration in Supabase Dashboard
+  
+- [ ] **Database Management Workflow** (Priority: Medium)
+  - [ ] Document team's preferred sync method
+  - [ ] Create backup strategy for production data
+  - [ ] Set up staging environment with sync
+  - [ ] Implement data masking for sensitive information
+  - [ ] Create migration rollback procedures
+
 ---
 
 ## 🚧 In Progress Tasks - Topic Analysis Agent Enhancement

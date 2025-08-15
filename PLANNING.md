@@ -220,6 +220,35 @@
 - **SMS**: Twilio
 - **Search**: Algolia or Typesense
 
+## 🔧 Infrastructure & Development Setup
+
+### Database Management
+- **Cloud to Local Sync**: See `docs/SUPABASE-LOCAL-SYNC.md` for syncing Supabase cloud with local Docker
+- **Security Hardening**: Implemented via 4-part setup (09a-09d) with integrated security fixes
+- **Remaining Security**: Minor warnings addressed in `design/lovable-prompts/09f-remaining-security-fixes.md`
+
+### Local Development Environment
+- **Docker Setup**: Complete Docker Compose configuration for local Supabase
+- **Sync Methods**: 4 different approaches documented for database synchronization
+- **Automated Scripts**: `sync-supabase.sh` for one-command cloud-to-local sync
+- **Port Allocation**: Following team-wide strategy (see `PORT_ALLOCATION_STRATEGY.md`)
+
+### Security Implementation Status
+- ✅ Row Level Security (RLS) on all tables
+- ✅ Function search paths properly configured
+- ✅ Audit logging with proper RLS policies
+- ✅ Multi-tenant data isolation
+- ✅ API key encryption
+- ✅ Budget enforcement
+- ⚠️ Minor warnings (extensions in public schema - normal for Supabase)
+
+### Development Workflow
+1. Pull latest schema from cloud
+2. Apply to local Docker environment
+3. Test features locally with hot reload
+4. Push migrations to cloud when ready
+5. Use verification queries to ensure security
+
 ## 📝 Notes
 
 ### Why These Are Nice-to-Haves
