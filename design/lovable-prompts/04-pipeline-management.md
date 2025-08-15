@@ -19,11 +19,12 @@ Create a comprehensive pipeline management system for the Blog-Poster platform t
 
 **Pipeline Management Components:**
 
-### Main Pipeline Page
+### Animated Main Pipeline Page
 ```typescript
 // src/pages/Pipeline.tsx
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
 import { apiClient } from '@/services/api'
 import { PipelineConfiguration } from '@/components/pipeline/PipelineConfiguration'
 import { ExecutionMonitor } from '@/components/pipeline/ExecutionMonitor'
@@ -31,6 +32,7 @@ import { PipelineHistory } from '@/components/pipeline/PipelineHistory'
 import { AgentStatus } from '@/components/pipeline/AgentStatus'
 import { CostTracker } from '@/components/pipeline/CostTracker'
 import { ExecutionLogs } from '@/components/pipeline/ExecutionLogs'
+import { PageTransition, FadeInSection, PulseEffect } from '@/components/ui/AnimatedComponents'
 import { Play, Square, Settings, History, DollarSign } from 'lucide-react'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import toast from 'react-hot-toast'
@@ -117,50 +119,95 @@ export default function Pipeline() {
   const canStart = !isRunning && isConnected
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Content Pipeline
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Orchestrate 5 AI agents to generate SEO-optimized articles
-          </p>
-        </div>
+    <PageTransition>
+      <div className="max-w-7xl mx-auto">
+        {/* Animated Header */}
+        <FadeInSection className="flex items-center justify-between mb-8">
+          <motion.div
+            initial={{ transform: 'translateX(-20px)', opacity: 0 }}
+            animate={{ transform: 'translateX(0px)', opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            style={{ willChange: 'transform, opacity' }}
+          >
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Content Pipeline
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Orchestrate 5 AI agents to generate SEO-optimized articles
+            </p>
+          </motion.div>
 
-        {/* Connection Status */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${
-              isConnected ? 'bg-green-500' : 'bg-red-500'
-            }`} />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {isConnected ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
+          {/* Animated Connection Status */}
+          <motion.div 
+            className="flex items-center gap-4"
+            initial={{ transform: 'translateX(20px)', opacity: 0 }}
+            animate={{ transform: 'translateX(0px)', opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            style={{ willChange: 'transform, opacity' }}
+          >
+            <div className="flex items-center gap-2">
+              <motion.div 
+                className={`h-2 w-2 rounded-full ${
+                  isConnected ? 'bg-green-500' : 'bg-red-500'
+                }`}
+                animate={isConnected ? {
+                  scale: [1, 1.2, 1],
+                  opacity: [1, 0.7, 1]
+                } : {
+                  scale: 1,
+                  opacity: 0.7
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
 
-          {/* Pipeline Controls */}
+          {/* Animated Pipeline Controls */}
           <div className="flex items-center gap-2">
-            {isRunning ? (
-              <button
-                onClick={() => stopPipelineMutation.mutate(currentExecution.id)}
-                className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                disabled={stopPipelineMutation.isPending}
-              >
-                <Square className="h-4 w-4 mr-2" />
-                Stop Pipeline
-              </button>
-            ) : (
-              <button
-                onClick={() => setActiveTab('config')}
-                className="inline-flex items-center px-4 py-2 bg-purple-gradient text-white rounded-lg hover:opacity-90"
-                disabled={!canStart}
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Start Pipeline
-              </button>
-            )}
+            <AnimatePresence mode="wait">
+              {isRunning ? (
+                <motion.button
+                  key="stop"
+                  onClick={() => stopPipelineMutation.mutate(currentExecution.id)}
+                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  disabled={stopPipelineMutation.isPending}
+                  initial={{ transform: 'scale(0) rotate(-180deg)' }}
+                  animate={{ transform: 'scale(1) rotate(0deg)' }}
+                  exit={{ transform: 'scale(0) rotate(180deg)' }}
+                  whileHover={{ transform: 'scale(1.05)' }}
+                  whileTap={{ transform: 'scale(0.95)' }}
+                  style={{ willChange: 'transform' }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <Square className="h-4 w-4 mr-2" />
+                  Stop Pipeline
+                </motion.button>
+              ) : (
+                <PulseEffect key="start" className={!canStart ? 'opacity-50' : ''}>
+                  <motion.button
+                    onClick={() => setActiveTab('config')}
+                    className="inline-flex items-center px-4 py-2 bg-purple-gradient text-white rounded-lg hover:opacity-90"
+                    disabled={!canStart}
+                    initial={{ transform: 'scale(0) rotate(180deg)' }}
+                    animate={{ transform: 'scale(1) rotate(0deg)' }}
+                    exit={{ transform: 'scale(0) rotate(-180deg)' }}
+                    whileHover={{ transform: 'scale(1.05)' }}
+                    whileTap={{ transform: 'scale(0.95)' }}
+                    style={{ willChange: 'transform' }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Start Pipeline
+                  </motion.button>
+                </PulseEffect>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -234,7 +281,8 @@ export default function Pipeline() {
           />
         )}
       </div>
-    </div>
+      </div>
+    </PageTransition>
   )
 }
 ```

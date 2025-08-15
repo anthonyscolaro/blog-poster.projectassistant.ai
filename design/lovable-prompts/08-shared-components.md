@@ -7,23 +7,26 @@ The shared components library provides reusable, consistent UI elements across t
 "As a user, I want a consistent, intuitive interface across all parts of the Blog-Poster platform with smooth interactions, clear feedback, and accessible design patterns that work seamlessly in both light and dark modes."
 
 ## Component Requirements:
+- **React 19 Features**: Leverage Server Components, use() hook, and Actions for form handling
 - **Design Consistency**: Purple gradient theme with consistent spacing and typography
 - **Accessibility**: WCAG 2.1 AA compliant with proper ARIA labels and keyboard navigation
 - **Responsive Design**: Mobile-first approach with breakpoint-aware layouts
 - **Loading States**: Skeleton loaders and loading indicators for all async operations
 - **Error Handling**: Error boundaries and user-friendly error messages
 - **Dark Mode**: Full dark mode support with smooth transitions
+- **Performance**: Optimized with React 19's concurrent features and Suspense
 
 ## Prompt for Lovable:
 
-Create a comprehensive shared component library for the Blog-Poster platform that provides reusable, accessible, and consistent UI elements with proper TypeScript types, loading states, error handling, and theme support.
+Create a comprehensive shared component library for the Blog-Poster platform that provides reusable, accessible, and consistent UI elements with proper TypeScript types, loading states, error handling, and theme support. Utilize React 19 features like Actions for form handling, Suspense for async components, and the use() hook where applicable.
 
 **Shared Components:**
 
-### Button Component System
+### Animated Button Component System
 ```typescript
 // src/components/ui/Button.tsx
 import React from 'react'
+import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
@@ -35,6 +38,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
   fullWidth?: boolean
+  animation?: boolean // Enable/disable animations
 }
 
 const buttonVariants = {
@@ -61,6 +65,7 @@ export function Button({
   leftIcon,
   rightIcon,
   fullWidth = false,
+  animation = true,
   className,
   children,
   disabled,
@@ -68,8 +73,22 @@ export function Button({
 }: ButtonProps) {
   const isDisabled = disabled || loading
 
+  const buttonAnimations = animation ? {
+    initial: { scale: 1 },
+    whileHover: { scale: 1.02 },
+    whileTap: { scale: 0.98 },
+    transition: { 
+      type: "spring", 
+      stiffness: 300, 
+      damping: 20 
+    }
+  } : {}
+
+  const ButtonComponent = animation ? motion.button : 'button'
+
   return (
-    <button
+    <ButtonComponent
+      {...buttonAnimations}
       className={cn(
         'relative inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed',
         buttonVariants[variant],
@@ -81,18 +100,41 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <>
+        <motion.div
+          className="flex items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           {loadingText || 'Loading...'}
-        </>
+        </motion.div>
       ) : (
         <>
-          {leftIcon && <span className="mr-2">{leftIcon}</span>}
+          {leftIcon && (
+            <motion.span 
+              className="mr-2"
+              initial={{ x: -5, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {leftIcon}
+            </motion.span>
+          )}
           {children}
-          {rightIcon && <span className="ml-2">{rightIcon}</span>}
+          {rightIcon && (
+            <motion.span 
+              className="ml-2"
+              initial={{ x: 5, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {rightIcon}
+            </motion.span>
+          )}
         </>
       )}
-    </button>
+    </ButtonComponent>
   )
 }
 
@@ -1117,6 +1159,375 @@ export function formatNumber(num: number, options?: Intl.NumberFormatOptions): s
 }
 ```
 
+### Animated Components Library
+
+```typescript
+// src/components/ui/AnimatedComponents.tsx
+import { motion, useReducedMotion, AnimatePresence } from 'framer-motion'
+import { useInView } from 'react-intersection-observer'
+import { ReactNode, useEffect, useState } from 'react'
+
+// Fade In Section - For page sections that animate in on scroll
+interface FadeInSectionProps {
+  children: ReactNode
+  delay?: number
+  direction?: 'up' | 'down' | 'left' | 'right'
+  className?: string
+}
+
+export function FadeInSection({ 
+  children, 
+  delay = 0, 
+  direction = 'up', 
+  className 
+}: FadeInSectionProps) {
+  const { ref, inView } = useInView({
+    threshold: 0.1,
+    triggerOnce: true
+  })
+  const shouldReduceMotion = useReducedMotion()
+
+  // PERFORMANCE: Use transform strings for hardware acceleration
+  const directionVariants = {
+    up: { transform: 'translateY(40px)', opacity: 0 },
+    down: { transform: 'translateY(-40px)', opacity: 0 },
+    left: { transform: 'translateX(40px)', opacity: 0 },
+    right: { transform: 'translateX(-40px)', opacity: 0 }
+  }
+
+  if (shouldReduceMotion) {
+    return <div className={className}>{children}</div>
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={directionVariants[direction]}
+      animate={inView ? { transform: 'translate(0px, 0px)', opacity: 1 } : directionVariants[direction]}
+      transition={{ duration: 0.6, delay, ease: "easeOut" }}
+      className={className}
+      // PERFORMANCE: Add will-change for heavy animations
+      style={{ willChange: inView ? 'transform, opacity' : 'auto' }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+// Stagger Container - For animating lists with staggered delays
+interface StaggerContainerProps {
+  children: ReactNode
+  staggerDelay?: number
+  className?: string
+}
+
+export function StaggerContainer({ 
+  children, 
+  staggerDelay = 0.1, 
+  className 
+}: StaggerContainerProps) {
+  const shouldReduceMotion = useReducedMotion()
+
+  const container = {
+    hidden: { opacity: 1 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: shouldReduceMotion ? 0 : staggerDelay
+      }
+    }
+  }
+
+  // PERFORMANCE: Use transform instead of y for hardware acceleration
+  const item = {
+    hidden: { transform: 'translateY(20px)', opacity: 0 },
+    visible: {
+      transform: 'translateY(0px)',
+      opacity: 1,
+      transition: { duration: shouldReduceMotion ? 0 : 0.5 }
+    }
+  }
+
+  return (
+    <motion.div
+      variants={container}
+      initial="hidden"
+      animate="visible"
+      className={className}
+    >
+      {Array.isArray(children) ? 
+        children.map((child, index) => (
+          <motion.div key={index} variants={item}>
+            {child}
+          </motion.div>
+        )) :
+        <motion.div variants={item}>{children}</motion.div>
+      }
+    </motion.div>
+  )
+}
+
+// Animated Counter - For numeric displays with count-up animation
+interface AnimatedCounterProps {
+  value: number
+  duration?: number
+  prefix?: string
+  suffix?: string
+  decimals?: number
+  className?: string
+}
+
+export function AnimatedCounter({ 
+  value, 
+  duration = 2, 
+  prefix = '', 
+  suffix = '', 
+  decimals = 0,
+  className 
+}: AnimatedCounterProps) {
+  const [count, setCount] = useState(0)
+  const { ref, inView } = useInView({ threshold: 0.1, triggerOnce: true })
+  const shouldReduceMotion = useReducedMotion()
+
+  useEffect(() => {
+    if (!inView) return
+
+    if (shouldReduceMotion) {
+      setCount(value)
+      return
+    }
+
+    let startTime: number | null = null
+    const startValue = 0
+
+    const animate = (currentTime: number) => {
+      if (startTime === null) startTime = currentTime
+      const progress = Math.min((currentTime - startTime) / (duration * 1000), 1)
+      
+      // Easing function for smooth animation
+      const easeOutExpo = 1 - Math.pow(2, -10 * progress)
+      const currentValue = startValue + (value - startValue) * easeOutExpo
+      
+      setCount(currentValue)
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        setCount(value)
+      }
+    }
+
+    requestAnimationFrame(animate)
+  }, [inView, value, duration, shouldReduceMotion])
+
+  return (
+    <span ref={ref} className={className}>
+      {prefix}{count.toFixed(decimals)}{suffix}
+    </span>
+  )
+}
+
+// Page Transition - For smooth page transitions
+export function PageTransition({ children }: { children: ReactNode }) {
+  const shouldReduceMotion = useReducedMotion()
+
+  // PERFORMANCE: Use transform strings for hardware acceleration
+  const pageVariants = {
+    initial: shouldReduceMotion ? {} : { 
+      opacity: 0, 
+      transform: 'translateX(-20px) scale(0.98)'
+    },
+    in: { 
+      opacity: 1, 
+      transform: 'translateX(0px) scale(1)'
+    },
+    out: shouldReduceMotion ? {} : { 
+      opacity: 0, 
+      transform: 'translateX(20px) scale(0.98)'
+    }
+  }
+
+  const pageTransition = {
+    type: "tween",
+    ease: "anticipate",
+    duration: shouldReduceMotion ? 0 : 0.4
+  }
+
+  return (
+    <motion.div
+      initial="initial"
+      animate="in"
+      exit="out"
+      variants={pageVariants}
+      transition={pageTransition}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+// Animated Modal - Enhanced modal with entrance/exit animations
+interface AnimatedModalProps {
+  isOpen: boolean
+  onClose: () => void
+  children: ReactNode
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+  className?: string
+}
+
+export function AnimatedModal({ 
+  isOpen, 
+  onClose, 
+  children, 
+  size = 'md',
+  className 
+}: AnimatedModalProps) {
+  const shouldReduceMotion = useReducedMotion()
+
+  const sizeClasses = {
+    sm: 'max-w-md',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl'
+  }
+
+  const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 }
+  }
+
+  // PERFORMANCE: Use transform for hardware acceleration
+  const modalVariants = {
+    hidden: shouldReduceMotion ? { opacity: 0 } : {
+      opacity: 0,
+      transform: 'scale(0.8) translateY(-50px)'
+    },
+    visible: {
+      opacity: 1,
+      transform: 'scale(1) translateY(0px)',
+      transition: {
+        type: "spring",
+        damping: 25,
+        stiffness: 500
+      }
+    }
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          initial="hidden"
+          animate="visible"
+          exit="hidden"
+          variants={backdropVariants}
+          onClick={onClose}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50" />
+          
+          {/* Modal */}
+          <motion.div
+            className={`
+              relative bg-white dark:bg-gray-800 rounded-xl shadow-xl 
+              w-full ${sizeClasses[size]} max-h-[90vh] overflow-auto
+              ${className}
+            `}
+            variants={modalVariants}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+// Pulse Effect - For highlighting new or important elements
+export function PulseEffect({ children, className }: { children: ReactNode; className?: string }) {
+  const shouldReduceMotion = useReducedMotion()
+
+  if (shouldReduceMotion) {
+    return <div className={className}>{children}</div>
+  }
+
+  return (
+    <motion.div
+      className={className}
+      animate={{
+        scale: [1, 1.05, 1],
+        opacity: [1, 0.8, 1]
+      }}
+      transition={{
+        duration: 2,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+// Typing Animation - For text that appears to be typed
+interface TypingAnimationProps {
+  text: string
+  speed?: number
+  className?: string
+  onComplete?: () => void
+}
+
+export function TypingAnimation({ 
+  text, 
+  speed = 100, 
+  className,
+  onComplete 
+}: TypingAnimationProps) {
+  const [displayedText, setDisplayedText] = useState('')
+  const [isComplete, setIsComplete] = useState(false)
+  const shouldReduceMotion = useReducedMotion()
+
+  useEffect(() => {
+    if (shouldReduceMotion) {
+      setDisplayedText(text)
+      setIsComplete(true)
+      onComplete?.()
+      return
+    }
+
+    let i = 0
+    const timer = setInterval(() => {
+      if (i < text.length) {
+        setDisplayedText(text.slice(0, i + 1))
+        i++
+      } else {
+        setIsComplete(true)
+        onComplete?.()
+        clearInterval(timer)
+      }
+    }, speed)
+
+    return () => clearInterval(timer)
+  }, [text, speed, shouldReduceMotion, onComplete])
+
+  return (
+    <span className={className}>
+      {displayedText}
+      {!isComplete && !shouldReduceMotion && (
+        <motion.span
+          animate={{ opacity: [1, 0] }}
+          transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
+        >
+          |
+        </motion.span>
+      )}
+    </span>
+  )
+}
+```
+
 **Success Criteria:**
 - Consistent design system with purple gradient theme and dark mode support
 - Accessible components with proper ARIA labels and keyboard navigation
@@ -1130,5 +1541,10 @@ export function formatNumber(num: number, options?: Intl.NumberFormatOptions): s
 - TypeScript types for all components and props
 - Performance optimized with proper memoization
 - Integration with existing styling and theme system
+- **Smooth Framer Motion animations** with accessibility support (respects prefers-reduced-motion)
+- **Micro-interactions** that enhance user experience without being distracting
+- **Page transitions** that provide visual continuity between routes
+- **Staggered animations** for lists and grids that create engaging reveals
+- **Progress indicators** with smooth animations for better perceived performance
 
 This shared component library provides a solid foundation for building consistent, accessible, and maintainable user interfaces across the Blog-Poster platform.
