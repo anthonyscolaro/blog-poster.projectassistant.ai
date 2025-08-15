@@ -185,21 +185,23 @@ This guide provides the complete blueprint for building Blog-Poster as a multi-t
 
 Execute these prompts in this EXACT order for proper setup:
 
-1. **Supabase Setup (4 parts - run in order)**:
+1. **Supabase Setup (5 parts - run in order)**:
    - **`09a-supabase-setup-core.md`** - Core tables and extensions
    - **`09b-supabase-setup-tables.md`** - Additional tables and relationships  
    - **`09c-supabase-setup-security.md`** - RLS policies and security functions
    - **`09d-supabase-setup-views.md`** - Views, storage, and final configuration
+   - **`09e-supabase-security-fixes.md`** - Critical security fixes (RUN AFTER 09d)
 2. **`01a-project-base.md`** - Basic React + Vite setup with dependencies
-3. **`08-shared-components.md`** - Reusable UI component library
-4. **`23-ui-ux-polish.md`** - Loading states, empty states, error handling, mobile nav
-5. **`13-landing-page.md`** - Main landing page (homepage) - CREATE FIRST
+3. **`02-authentication-improved.md`** - Enhanced auth with multi-tenancy (USE THIS INSTEAD OF 02-authentication.md)
+4. **`08-shared-components.md`** - Reusable UI component library
+5. **`23-ui-ux-polish.md`** - Loading states, empty states, error handling, mobile nav
+6. **`13-landing-page.md`** - Main landing page (homepage) - CREATE FIRST
 6. **`18-public-pages.md`** - All other public pages (pricing, features, blog, etc.)
 7. **`01b-routing-setup.md`** - Complete routing structure (now that ALL page components exist)
 
 ### Phase 2: Authentication System
 
-8. **`02-authentication.md`** - Multi-tenant auth with Supabase (login/register)
+8. **Authentication already done in Phase 1** - Using 02-authentication-improved.md
 9. **`14-onboarding.md`** - Complete onboarding wizard for new users
 
 ### Phase 3: Core Application
