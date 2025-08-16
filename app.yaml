@@ -1,0 +1,148 @@
+# Digital Ocean App Platform Specification
+# Blog-Poster FastAPI Backend Production Configuration
+name: blog-poster-api
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DEPLOYMENT_LIVE
+  - rule: DOMAIN_FAILED
+  - rule: DOMAIN_LIVE
+
+# Enable buildpack features
+features:
+  - buildpack-stack=ubuntu-22
+
+# Ingress configuration
+ingress:
+  rules:
+    - component:
+        name: api
+      match:
+        path:
+          prefix: /
+      cors:
+        allow_origins:
+          - prefix: https://blog-poster.vercel.app  # Your Vercel frontend
+          - prefix: https://servicedogus.com
+          - prefix: http://localhost:3000  # Local development
+          - prefix: http://localhost:5173  # Vite development
+        allow_methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        allow_headers:
+          - Authorization
+          - Content-Type
+          - X-API-Key
+          - X-Organization-ID
+        allow_credentials: true
+
+services:
+  - name: api
+    dockerfile_path: Dockerfile.light
+    source_dir: /
+    
+    # GitHub integration
+    github:
+      repo: anthonyscolaro/blog-poster
+      branch: main
+      deploy_on_push: true
+    
+    # Resource allocation
+    instance_size_slug: professional-xs  # 1 vCPU, 2GB RAM, $25/month
+    instance_count: 1
+    
+    # HTTP configuration
+    http_port: 8088
+    
+    # Health check configuration
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 60
+      period_seconds: 30
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 3
+    
+    # Run command
+    run_command: uvicorn app:app --host 0.0.0.0 --port 8088 --workers 2
+    
+    # Environment variables
+    envs:
+      # Public environment variables
+      - key: ENVIRONMENT
+        scope: RUN_TIME
+        value: production
+      
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: INFO
+      
+      - key: WORDPRESS_URL
+        scope: RUN_TIME
+        value: https://servicedogus.com
+      
+      - key: WP_VERIFY_SSL
+        scope: RUN_TIME
+        value: "true"
+      
+      - key: MAX_COST_PER_ARTICLE
+        scope: RUN_TIME
+        value: "0.50"
+      
+      - key: MAX_MONTHLY_COST
+        scope: RUN_TIME
+        value: "100.00"
+      
+      - key: ALLOWED_ORIGINS
+        scope: RUN_TIME
+        value: "https://blog-poster.vercel.app,https://servicedogus.com"
+      
+      # Secret environment variables (to be set via doctl or UI)
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: SUPABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: SUPABASE_ANON_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: SUPABASE_SERVICE_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: SUPABASE_JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: JINA_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: WP_USERNAME
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: WP_APP_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: REDIS_URL
+        scope: RUN_TIME
+        type: SECRET

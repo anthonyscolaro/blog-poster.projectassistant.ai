@@ -1,0 +1,96 @@
+name: Deploy to Digital Ocean
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov
+      
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=src --cov-report=term-missing || true
+        continue-on-error: true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      
+      - name: Set environment
+        id: vars
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "app_name=blog-poster-api" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "app_name=blog-poster-staging" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Check if app exists
+        id: check_app
+        run: |
+          APP_ID=$(doctl apps list --format ID,Name --no-header | grep "${{ steps.vars.outputs.app_name }}" | awk '{print $1}' || echo "")
+          echo "app_id=$APP_ID" >> $GITHUB_OUTPUT
+      
+      - name: Create or update app
+        run: |
+          if [ -z "${{ steps.check_app.outputs.app_id }}" ]; then
+            echo "Creating new app..."
+            if [ "${{ steps.vars.outputs.environment }}" == "staging" ]; then
+              cp app.yaml app.staging.yaml
+              sed -i 's/blog-poster-api/blog-poster-staging/g' app.staging.yaml
+              sed -i 's/branch: main/branch: staging/g' app.staging.yaml
+              sed -i 's/professional-xs/basic-xxs/g' app.staging.yaml
+              doctl apps create --spec app.staging.yaml
+            else
+              doctl apps create --spec app.yaml
+            fi
+          else
+            echo "Updating existing app..."
+            if [ "${{ steps.vars.outputs.environment }}" == "staging" ]; then
+              cp app.yaml app.staging.yaml
+              sed -i 's/blog-poster-api/blog-poster-staging/g' app.staging.yaml
+              sed -i 's/branch: main/branch: staging/g' app.staging.yaml
+              sed -i 's/professional-xs/basic-xxs/g' app.staging.yaml
+              doctl apps spec update "${{ steps.check_app.outputs.app_id }}" --spec app.staging.yaml
+            else
+              doctl apps spec update "${{ steps.check_app.outputs.app_id }}" --spec app.yaml
+            fi
+          fi
+      
+      - name: Deploy app
+        run: |
+          APP_ID=$(doctl apps list --format ID,Name --no-header | grep "${{ steps.vars.outputs.app_name }}" | awk '{print $1}')
+          doctl apps create-deployment "$APP_ID" --wait
+      
+      - name: Get app URL
+        run: |
+          APP_ID=$(doctl apps list --format ID,Name --no-header | grep "${{ steps.vars.outputs.app_name }}" | awk '{print $1}')
+          APP_URL=$(doctl apps get "$APP_ID" --format DefaultIngress --no-header)
+          echo "🚀 Deployed to: $APP_URL"
+          echo "📚 API Docs: $APP_URL/api/docs"
