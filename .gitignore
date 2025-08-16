@@ -1,8 +1,15 @@
+# ignore lovable frontend while we build it
+frontend/*
+
 # Blog Poster Service .gitignore
 
-# Environment files
+# Environment files - CRITICAL: Never commit these
+.env*
+!.env.example
 .env.local
 .env.production
+.env.staging
+.env.development
 .env
 
 # Python
@@ -74,8 +81,12 @@ tmp/
 generated-articles/
 competitor-content/
 
-# Secrets
+# Secrets - CRITICAL: Never commit these
 *.key
 *.pem
 *.crt
 secrets/
+credentials/
+private-keys/
+**/api-keys.*
+*.secret

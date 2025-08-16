@@ -1,10 +1,11 @@
 """
-FastAPI application for Blog Poster - Modular Architecture
+FastAPI application for Blog Poster - Enterprise MicroSaaS Platform
 
 This is the main application file that orchestrates Claude 3.5 Sonnet with:
-- Verifiable slot completion via <tool .../> tags
-- Internal link resolver
-- SEO lint checker
+- Multi-tenant architecture with organization-based isolation
+- JWT authentication via Supabase
+- Standardized API responses for frontend compatibility
+- WebSocket support for real-time updates
 - Strong Pydantic contracts for inputs/outputs
 
 Run:
@@ -12,15 +13,19 @@ Run:
 
 Env (example):
   ANTHROPIC_API_KEY=...
+  SUPABASE_URL=...
+  SUPABASE_ANON_KEY=...
+  SUPABASE_JWT_SECRET=...
   VECTOR_BACKEND=qdrant|convex|memory
   QDRANT_URL=http://localhost:6333
 """
 import os
 import sys
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -41,6 +46,10 @@ except Exception as e:
     logger.error("Please ensure DATABASE_URL is set and PostgreSQL is running")
     sys.exit(1)
 
+# Import middleware
+from src.middleware.auth import add_auth_to_request
+from src.middleware.response import ResponseWrapperMiddleware, OrganizationContextMiddleware
+
 # Import all routers
 from src.routers import (
     health_router,
@@ -55,20 +64,44 @@ from src.routers import (
     profile_router
 )
 from src.routers.auth import router as auth_router
+from src.routers.websocket import router as websocket_router
+from src.routers.monitoring import router as monitoring_router
 
 # ------------------------------
 # FastAPI App Setup
 # ------------------------------
-app = FastAPI(title="Blog Poster Dashboard", version="2.0.0")
+app = FastAPI(
+    title="Blog Poster API",
+    version="3.0.0",
+    description="Enterprise MicroSaaS Platform for AI-Powered Content Generation",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
+)
 
-# Add CORS middleware
+# Add CORS middleware - SECURITY: Restrict origins
+ALLOWED_ORIGINS = [
+    "https://servicedogus.com",
+    "https://staging-wp.servicedogus.org", 
+    "http://localhost:8084",  # Local WordPress
+    "http://localhost:3000",  # Local React development
+    "http://localhost:3001",  # Alternative React port
+    "http://localhost:5173",  # Vite development server
+    "http://localhost:8088",  # Local API
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,  # FIXED: No more wildcards!
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Organization-ID"],
 )
+
+# Add custom middleware
+app.add_middleware(ResponseWrapperMiddleware)
+app.add_middleware(OrganizationContextMiddleware)
+app.middleware("http")(add_auth_to_request)
 
 # Create directories if they don't exist
 os.makedirs("templates", exist_ok=True)
@@ -77,18 +110,28 @@ os.makedirs("static", exist_ok=True)
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Include all routers
-app.include_router(auth_router)  # Authentication routes
-app.include_router(health_router)
-app.include_router(articles_router)
-app.include_router(wordpress_router)
-app.include_router(competitors_router)
-app.include_router(topics_router)
-app.include_router(pipeline_router)
-app.include_router(vector_router)
-app.include_router(seo_router)
-app.include_router(profile_router)
-app.include_router(dashboard_router)  # Include dashboard router last (handles root routes)
+# Create API v1 router with prefix
+api_v1 = APIRouter(prefix="/api/v1")
+
+# Include all API routers under /api/v1
+api_v1.include_router(auth_router, tags=["Authentication"])
+api_v1.include_router(health_router, tags=["Health"])
+api_v1.include_router(articles_router, tags=["Articles"])
+api_v1.include_router(wordpress_router, tags=["WordPress"])
+api_v1.include_router(competitors_router, tags=["Competitors"])
+api_v1.include_router(topics_router, tags=["Topics"])
+api_v1.include_router(pipeline_router, tags=["Pipeline"])
+api_v1.include_router(vector_router, tags=["Vector Search"])
+api_v1.include_router(seo_router, tags=["SEO"])
+api_v1.include_router(profile_router, tags=["Profile"])
+api_v1.include_router(websocket_router, tags=["WebSocket"])
+api_v1.include_router(monitoring_router, tags=["Monitoring"])
+
+# Mount API v1 router
+app.include_router(api_v1)
+
+# Include dashboard router separately (handles HTML pages, not API)
+app.include_router(dashboard_router)  # Dashboard pages (HTML)
 
 # Include external routers if available
 try:
