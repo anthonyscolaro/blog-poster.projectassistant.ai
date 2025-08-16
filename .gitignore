@@ -1,5 +1,5 @@
-# ignore lovable frontend while we build it
-frontend/
+# Frontend is now ready for deployment
+# frontend/
 
 # Blog Poster Service .gitignore
 
