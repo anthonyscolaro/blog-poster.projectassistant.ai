@@ -46,9 +46,7 @@ services:
       failure_threshold: 5
     
     # Run command
-    run_command: |
-      python scripts/init_database.py || echo "Database init may fail, continuing..."
-      uvicorn app:app --host 0.0.0.0 --port 8088
+    run_command: uvicorn app:app --host 0.0.0.0 --port 8088
     
     # Environment variables (keep existing)
     envs:
