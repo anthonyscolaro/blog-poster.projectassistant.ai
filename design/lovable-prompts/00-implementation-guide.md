@@ -4,6 +4,10 @@ Please study this implementation guide but don't try to create a website yet. Wa
 
 # Implementation Guide: Blog-Poster MicroSaaS Platform
 
+> **Last Updated**: January 2025
+> **Status**: Production-Ready with Enterprise Features
+> 
+
 ## 🚀 IMPORTANT: Complete MicroSaaS Implementation
 
 This guide provides the complete blueprint for building Blog-Poster as a multi-tenant microSaaS platform. Follow these prompts in order to create a fully functional application with ALL routes working, complete UI/UX, and every page clickable from the start.
@@ -60,10 +64,9 @@ This guide provides the complete blueprint for building Blog-Poster as a multi-t
 
 ### What Uses Supabase (Direct Database)
 - **Authentication** - Supabase Auth with JWT tokens
-- **Data Storage** - All tables (users, articles, pipelines, etc.)
-- **Real-time Updates** - Live subscriptions for pipeline status, notifications
+- **User Profiles & Organizations** - Multi-tenant data isolation
 - **File Storage** - Images, documents, exports
-- **Row Level Security** - Multi-tenant data isolation
+- **Row Level Security** - Organization-based access control
 
 ### What Uses FastAPI Backend (Port 8088)
 - **Agent Orchestration** - Running the 5-agent pipeline
@@ -72,49 +75,71 @@ This guide provides the complete blueprint for building Blog-Poster as a multi-t
 - **SEO Analysis** - Complex content scoring algorithms
 - **WordPress Publishing** - WPGraphQL integration
 - **Cost Calculations** - Token counting, usage tracking
+- **Pipeline Management** - Execution, monitoring, status
+- **Article Storage** - Generated content and metadata
+- **Real-time Updates** - Native WebSocket for pipeline progress
 
 ### Integration Pattern for All Components
 
 Every Lovable prompt should include this backend integration notice:
 
 ```typescript
-// src/services/api.ts
+// src/services/api.ts - CORRECTED VERSION
 import { supabase } from '@/services/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8088'
 
 export class APIClient {
-  // For AI/Processing tasks - use FastAPI
-  async executePipeline(config: PipelineConfig) {
-    const response = await fetch(`${API_URL}/api/v1/pipeline/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-      },
-      body: JSON.stringify(config)
-    })
-    return response.json()
+  // Get auth headers with organization context
+  private async getHeaders() {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .single()
+    
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': session ? `Bearer ${session.access_token}` : '',
+      'X-Organization-ID': profile?.organization_id || ''
+    }
   }
 
-  // For data operations - use Supabase directly
-  async getArticles(organizationId: string) {
+  // For AI/Processing tasks - use FastAPI (with response unwrapping)
+  async runPipeline(config: PipelineConfig) {
+    const response = await fetch(`${API_URL}/api/v1/pipeline/run`, {
+      method: 'POST',
+      headers: await this.getHeaders(),
+      body: JSON.stringify(config)
+    })
+    const wrapped = await response.json()
+    
+    // IMPORTANT: Unwrap the response
+    if (!wrapped.success) {
+      throw new Error(wrapped.error || wrapped.message)
+    }
+    return wrapped.data
+  }
+
+  // For user/org data - use Supabase directly
+  async getUserProfile() {
     return supabase
-      .from('articles')
+      .from('profiles')
       .select('*')
-      .eq('organization_id', organizationId)
+      .single()
   }
 }
 
 // Mock responses for frontend-only development
 const MOCK_RESPONSES = {
-  '/api/v1/pipeline/execute': {
-    id: 'mock-pipeline-123',
+  '/api/v1/pipeline/run': {
+    pipeline_id: 'pipeline_20240817_001',
     status: 'running',
     agents_completed: ['competitor_monitoring'],
-    estimated_cost: 1.25
+    progress_percentage: 20,
+    total_cost: 0.25
   },
-  '/api/v1/seo/analyze': {
+  '/api/v1/seo/lint': {
     score: 85,
     issues: [],
     suggestions: ['Add more internal links', 'Optimize meta description']
@@ -125,10 +150,12 @@ const MOCK_RESPONSES = {
 ### Backend Integration Requirements
 
 All prompts MUST include:
-1. **API endpoint documentation** - List all FastAPI endpoints used
-2. **Mock data for development** - Allow frontend-only testing
-3. **Error handling** - Graceful fallback when API unavailable
-4. **Supabase-first approach** - Use database for all data storage
+1. **Correct API paths** - Use actual FastAPI endpoints (pipeline singular, api/articles double prefix)
+2. **Response unwrapping** - All responses are wrapped in `{data, message, success}` format
+3. **Organization context** - Include X-Organization-ID header in all requests
+4. **Native WebSocket** - Use native WebSocket, NOT Socket.IO
+5. **Mock data for development** - Allow frontend-only testing
+6. **Error handling** - Graceful fallback when API unavailable
 
 ### Example Prompt Structure
 
@@ -136,13 +163,20 @@ All prompts MUST include:
 ## Backend Integration Notice
 
 This component uses Blog-Poster's hybrid architecture:
-- **Data Storage**: Supabase tables (direct queries)
-- **AI Processing**: FastAPI endpoints (when needed)
-- **Real-time**: Supabase subscriptions
+- **User Data**: Supabase tables (profiles, organizations)
+- **Pipeline Data**: FastAPI backend (articles, pipelines, costs)
+- **Real-time**: Native WebSocket for pipeline updates
 
-### API Endpoints Used:
-- POST `/api/v1/seo/analyze` - Analyze article SEO score
-- POST `/api/v1/pipeline/execute` - Start content pipeline
+### API Endpoints Used (CORRECTED PATHS):
+- POST `/api/v1/pipeline/run` - Start content pipeline
+- GET `/api/v1/pipeline/history` - Get pipeline history
+- POST `/api/v1/seo/lint` - Analyze article SEO score
+- GET `/api/v1/monitoring/agents/status` - Get agent health
+
+### Important:
+- All API responses are wrapped and must be unwrapped
+- Use native WebSocket at ws://localhost:8088/api/v1/ws/
+- Include JWT token and organization ID in headers
 
 ### Development Mode:
 When FastAPI backend is unavailable, mock responses are provided for testing.
@@ -235,7 +269,8 @@ When FastAPI backend is unavailable, mock responses are provided for testing.
 /settings/api-keys      - API key management
 /settings/wordpress     - WordPress sites
 /settings/notifications - Notification preferences
-/settings/security      - Security settings
+/settings/agents        - Agent configuration
+/settings/budget        - Budget management
 /settings/integrations  - Third-party integrations
 /settings/webhooks      - Webhook configuration
 /settings/branding      - White-label settings
@@ -275,17 +310,40 @@ When FastAPI backend is unavailable, mock responses are provided for testing.
 
 ## ⚠️ CORRECT Implementation Order
 
-> **Final Update (Jan 2025)**: The pipeline management system has been fully corrected based on Lovable's analysis. The current `04-pipeline-management.md`:
+> **Final Update (Jan 2025)**: Key improvements made to the implementation:
+> 
+> **Pipeline Management** (`04-pipeline-management.md`):
 > - ✅ Uses correct import path: `@/services/supabase`
 > - ✅ Uses existing authentication: `@/contexts/AuthContext`  
 > - ✅ Extends existing `PipelineStatus` component from dashboard
 > - ✅ Uses existing shared UI components from `08-shared-components.md`
-> - ✅ Creates only missing UI components (Badge, Alert, Tabs, etc.)
 > - ✅ Works with existing `pipelines` table structure
 > - ✅ Real-time updates via Supabase subscriptions
-> - ✅ No backend API dependency (uses Supabase directly)
 > 
-> All previous versions with incorrect imports have been archived. This version is ready for implementation.
+> **Settings Management** (`07-settings.md` - Updated Jan 2025):
+> - ✅ Comprehensive enterprise-grade settings system
+> - ✅ Full TypeScript strict mode compliance (no `any` types)
+> - ✅ Agent configuration with model selection and custom prompts
+> - ✅ Organization-wide settings with branding and feature flags
+> - ✅ Budget controls with automatic pause on limit
+> - ✅ Third-party integrations (Google Analytics, HubSpot, Zapier, Make)
+> - ✅ Advanced notification system (Email, In-app, Webhooks, Slack)
+> - ✅ Multi-site WordPress management with categories
+> 
+> **TypeScript Strict Mode** (`21-typescript-strict-mode.md` - Added Jan 2025):
+> - ✅ Enables full TypeScript strict mode for enterprise code quality
+> - ✅ Fixes all `any` types with proper interfaces
+> - ✅ Adds return types to all functions
+> - ✅ Handles nullable types correctly
+> - ✅ Creates comprehensive type definition files
+> - ✅ Ensures zero TypeScript errors
+> 
+> **Stripe Security** (`20-stripe-security-fixes.md`):
+> - ✅ Plan validation in checkout
+> - ✅ Secure webhook handler
+> - ✅ Subscription lifecycle management
+> 
+> All previous versions with issues have been archived. Current versions are production-ready.
 
 ### Phase 1: Database & Foundation (Start Here)
 
@@ -319,23 +377,25 @@ Execute these prompts in this EXACT order for proper setup:
 
 13. **`16-team-management.md`** - Team collaboration features
 14. **`15-billing.md`** - Stripe billing integration
+15. **`20-stripe-security-fixes.md`** - Critical security fixes for Stripe (webhook handler, validation)
 
 ### Phase 5: Advanced Features
 
-15. **`06-monitoring.md`** - Analytics and monitoring
-16. **`07-settings.md`** - Complete settings management
-17. **`17-admin-dashboard.md`** - Platform admin controls
+16. **`06-monitoring.md`** - Analytics and monitoring
+17. **`07-settings.md`** - Comprehensive settings management (Updated Jan 2025 with enterprise features)
+18. **`17-admin-dashboard.md`** - Platform admin controls
 
 ### Phase 6: Animations & Polish (Optional but Recommended)
 
-18. **`22-advanced-animations.md`** - Advanced Framer Motion animations (optional)
+19. **`22-advanced-animations.md`** - Advanced Framer Motion animations (optional)
 
-### Phase 7: Integration & Deployment
+### Phase 7: Code Quality & Integration
 
-19. **`10-api-integration.md`** - Backend API connection
-20. **`11-deployment-ready.md`** - Production configuration
-21. **`12-complete-integration.md`** - Final testing
-22. **`19-critical-missing-features.md`** - Security & compliance features
+20. **`21-typescript-strict-mode.md`** - Enable TypeScript strict mode and fix all type issues (CRITICAL - Do this before deployment)
+21. **`10-api-integration.md`** - Backend API connection with proper FastAPI integration
+22. **`11-deployment-ready.md`** - Production configuration
+23. **`12-complete-integration.md`** - Final testing
+24. **`19-critical-missing-features.md`** - Security & compliance features
 
 ## Why This Order Works
 

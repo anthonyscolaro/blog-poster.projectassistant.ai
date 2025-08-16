@@ -1,5 +1,7 @@
 # Lovable Prompt: Admin Dashboard - Platform Management
 
+> **Updated January 2025**: Enhanced with enterprise-grade security features including rate limiting, audit logging, emergency controls, and real-time performance monitoring.
+
 ## Business Context
 Create a comprehensive platform admin dashboard for Blog-Poster that allows platform administrators to manage the entire SaaS operation. This includes user management, organization oversight, system monitoring, billing management, and platform analytics.
 
@@ -966,6 +968,260 @@ interface AdminState {
 - Permission change tracking
 - System modification logs
 - Compliance reporting
+
+// Admin Activity Logging
+interface AdminAuditLog {
+  admin_id: string
+  action: string
+  target_type: 'user' | 'organization' | 'system'
+  target_id: string
+  details: Record<string, unknown>
+  ip_address: string
+  user_agent: string
+  timestamp: string
+  severity: 'info' | 'warning' | 'critical'
+}
+
+// Example audit log implementation
+const logAdminAction = async (action: Partial<AdminAuditLog>) => {
+  await supabase.from('admin_audit_logs').insert({
+    ...action,
+    admin_id: currentAdmin.id,
+    ip_address: request.ip,
+    timestamp: new Date().toISOString()
+  })
+}
+```
+
+### Rate Limiting & Abuse Prevention
+```typescript
+// Protect admin endpoints from abuse
+const adminRateLimit = {
+  impersonate: '5 per hour per admin',
+  bulkOperations: '10 per hour',
+  dataExport: '20 per day',
+  systemConfig: '30 per hour',
+  userModification: '100 per hour'
+}
+
+// Rate limiting implementation
+interface RateLimitConfig {
+  endpoint: string
+  limit: number
+  window: 'minute' | 'hour' | 'day'
+  byAdmin: boolean
+}
+
+// Example rate limit check
+const checkRateLimit = async (adminId: string, action: string): Promise<boolean> => {
+  const key = `rate_limit:${adminId}:${action}`
+  const current = await redis.incr(key)
+  if (current === 1) {
+    await redis.expire(key, getRateLimitWindow(action))
+  }
+  return current <= getRateLimitThreshold(action)
+}
+```
+
+### Emergency Controls
+```typescript
+// Emergency admin capabilities for crisis management
+interface EmergencyControls {
+  maintenanceMode: boolean      // Disable all user access
+  readOnlyMode: boolean         // Prevent all write operations
+  disablePayments: boolean      // Stop payment processing
+  pauseAgents: boolean          // Stop AI agent processing
+  disableRegistrations: boolean // Stop new user signups
+  throttleAPI: boolean          // Reduce API rate limits
+  emergencyMessage: string | null // Display to all users
+}
+
+// Emergency control panel component
+const EmergencyControlPanel = () => {
+  const [controls, setControls] = useState<EmergencyControls>()
+  
+  const activateEmergency = async (control: keyof EmergencyControls) => {
+    // Require additional authentication
+    const confirmed = await confirmWithMFA()
+    if (!confirmed) return
+    
+    // Log critical action
+    await logAdminAction({
+      action: `EMERGENCY_${control.toUpperCase()}_ACTIVATED`,
+      severity: 'critical',
+      target_type: 'system'
+    })
+    
+    // Apply emergency control
+    await supabase.from('system_config')
+      .update({ [control]: true })
+      .eq('id', 'emergency_controls')
+  }
+}
+```
+
+### Performance Monitoring
+```typescript
+// Real-time performance metrics dashboard
+interface PerformanceMetrics {
+  api: {
+    latency_p50: number
+    latency_p95: number
+    latency_p99: number
+    requests_per_second: number
+    error_rate: number
+  }
+  database: {
+    active_connections: number
+    slow_queries: QueryLog[]
+    replication_lag: number
+    cache_hit_rate: number
+  }
+  infrastructure: {
+    cpu_usage: number
+    memory_usage: number
+    disk_io: number
+    network_throughput: number
+  }
+  application: {
+    heap_size: number
+    gc_pause_time: number
+    event_loop_lag: number
+    worker_pool_size: number
+  }
+}
+
+// Performance monitoring component
+const PerformanceMonitor = () => {
+  const [metrics, setMetrics] = useState<PerformanceMetrics>()
+  const [alerts, setAlerts] = useState<PerformanceAlert[]>()
+  
+  // Real-time metric updates via WebSocket
+  useEffect(() => {
+    const ws = new WebSocket('wss://api.blog-poster.com/admin/metrics')
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      setMetrics(data.metrics)
+      
+      // Check for performance alerts
+      if (data.metrics.api.latency_p99 > 1000) {
+        setAlerts(prev => [...prev, {
+          type: 'API_LATENCY_HIGH',
+          severity: 'warning',
+          message: 'API latency exceeding 1 second at p99'
+        }])
+      }
+    }
+    return () => ws.close()
+  }, [])
+  
+  return (
+    <div className="performance-dashboard">
+      <MetricChart data={metrics?.api} title="API Performance" />
+      <MetricChart data={metrics?.database} title="Database Health" />
+      <MetricChart data={metrics?.infrastructure} title="Infrastructure" />
+      <AlertsList alerts={alerts} />
+    </div>
+  )
+}
+```
+
+### Database Tables Required
+
+```sql
+-- Admin audit logs table
+CREATE TABLE admin_audit_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  admin_id UUID REFERENCES auth.users(id) NOT NULL,
+  action VARCHAR(255) NOT NULL,
+  target_type VARCHAR(50) NOT NULL,
+  target_id VARCHAR(255),
+  details JSONB,
+  ip_address INET,
+  user_agent TEXT,
+  severity VARCHAR(20) DEFAULT 'info',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create index for efficient querying
+CREATE INDEX idx_admin_audit_logs_admin_id ON admin_audit_logs(admin_id);
+CREATE INDEX idx_admin_audit_logs_created_at ON admin_audit_logs(created_at DESC);
+CREATE INDEX idx_admin_audit_logs_target ON admin_audit_logs(target_type, target_id);
+
+-- System configuration table for emergency controls
+CREATE TABLE system_config (
+  id VARCHAR(50) PRIMARY KEY,
+  config JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_by UUID REFERENCES auth.users(id)
+);
+
+-- Insert default emergency controls
+INSERT INTO system_config (id, config) VALUES (
+  'emergency_controls',
+  '{
+    "maintenanceMode": false,
+    "readOnlyMode": false,
+    "disablePayments": false,
+    "pauseAgents": false,
+    "disableRegistrations": false,
+    "throttleAPI": false,
+    "emergencyMessage": null
+  }'::jsonb
+);
+
+-- Admin roles table
+CREATE TABLE admin_roles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) UNIQUE NOT NULL,
+  role VARCHAR(50) NOT NULL,
+  permissions JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id)
+);
+
+-- Rate limiting table
+CREATE TABLE rate_limits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  admin_id UUID REFERENCES auth.users(id) NOT NULL,
+  action VARCHAR(100) NOT NULL,
+  count INTEGER DEFAULT 0,
+  window_start TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(admin_id, action, window_start)
+);
+
+-- Platform metrics snapshots for historical analysis
+CREATE TABLE platform_metrics (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  metric_type VARCHAR(50) NOT NULL,
+  metric_data JSONB NOT NULL,
+  recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create RLS policies for admin tables
+ALTER TABLE admin_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_roles ENABLE ROW LEVEL SECURITY;
+
+-- Only platform admins can read audit logs
+CREATE POLICY "Platform admins can read audit logs" ON admin_audit_logs
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM admin_roles
+      WHERE user_id = auth.uid()
+      AND role IN ('platform_admin', 'technical_admin')
+    )
+  );
+
+-- Only platform admins can modify system config
+CREATE POLICY "Platform admins can modify system config" ON system_config
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM admin_roles
+      WHERE user_id = auth.uid()
+      AND role = 'platform_admin'
+    )
+  );
 ```
 
 ### Success Criteria
@@ -973,11 +1229,14 @@ interface AdminState {
 ✅ **Real-time Monitoring**: Live system health and performance tracking
 ✅ **Efficient Operations**: Streamlined admin workflows and bulk actions
 ✅ **Data-Driven Decisions**: Rich analytics and reporting capabilities
-✅ **Security Focused**: Robust audit trails and access controls
+✅ **Security Focused**: Robust audit trails and access controls with rate limiting
+✅ **Emergency Ready**: Quick crisis management with emergency controls
+✅ **Performance Tracking**: Real-time metrics with p50/p95/p99 latency monitoring
+✅ **Audit Compliant**: Complete admin action logging with IP tracking
 ✅ **Scalable Design**: Handles growth from startup to enterprise scale
 ✅ **Mobile Responsive**: Full admin capabilities on mobile devices
 ✅ **Integration Ready**: Connects with external monitoring and support tools
 ✅ **Compliance Ready**: Meets enterprise security and audit requirements
 ✅ **User Friendly**: Intuitive interface for complex administrative tasks
 
-This admin dashboard provides enterprise-grade platform management capabilities, enabling administrators to efficiently operate and scale the Blog-Poster SaaS platform while maintaining security, compliance, and excellent customer experience.
+This admin dashboard provides enterprise-grade platform management capabilities with advanced security features, enabling administrators to efficiently operate and scale the Blog-Poster SaaS platform while maintaining security, compliance, and excellent customer experience.
