@@ -102,26 +102,31 @@ services:
         scope: RUN_TIME
         value: "https://blog-poster.vercel.app,https://servicedogus.com"
       
-      # Secret environment variables (to be set via doctl or UI)
+      # Secret environment variables - Blog-Poster Backend Database
       - key: DATABASE_URL
         scope: RUN_TIME
         type: SECRET
+        value: "postgresql://postgres.pynlhikthsmduttvihuw:CcGUZqo8ZdqMD2pNUCNN@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
       
       - key: SUPABASE_URL
         scope: RUN_TIME
         type: SECRET
+        value: "https://pynlhikthsmduttvihuw.supabase.co"
       
       - key: SUPABASE_ANON_KEY
         scope: RUN_TIME
         type: SECRET
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5bmxoaWt0aHNtZHV0dHZpaHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzODIwMTYsImV4cCI6MjA3MDk1ODAxNn0.BDGAvf1jeX9iiQF7RaouCyzds6NS58guKB4l39AX_uQ"
       
       - key: SUPABASE_SERVICE_KEY
         scope: RUN_TIME
         type: SECRET
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5bmxoaWt0aHNtZHV0dHZpaHV3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTM4MjAxNiwiZXhwIjoyMDcwOTU4MDE2fQ._hyfVCT8sAMVKPZkqjxu3RMW7fX2BEofW05H9G1tSrM"
       
       - key: SUPABASE_JWT_SECRET
         scope: RUN_TIME
         type: SECRET
+        value: "CcGUZqo8ZdqMD2pNUCNN"
       
       - key: ANTHROPIC_API_KEY
         scope: RUN_TIME
