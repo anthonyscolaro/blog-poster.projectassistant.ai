@@ -1,0 +1,76 @@
+# Frontend Docker Compose Configuration
+# This file adds the frontend service to the existing Docker stack
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.frontend.yml up -d
+#
+# Or for frontend only:
+#   docker compose -f docker-compose.frontend.yml up
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: development  # Use 'production' for production builds
+    container_name: blog-frontend
+    ports:
+      - "5173:5173"  # Vite dev server
+    volumes:
+      # Mount source code for hot reload in development
+      - ./frontend:/app
+      # Use anonymous volume for node_modules to avoid conflicts
+      - /app/node_modules
+    environment:
+      # Frontend environment variables
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:8000}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8088}
+      VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY}
+      VITE_APP_NAME: ${VITE_APP_NAME:-Blog-Poster}
+      VITE_APP_URL: ${VITE_APP_URL:-http://localhost:5173}
+      # Development settings
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: true  # For file watching in Docker
+    # No dependencies for standalone operation
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5173 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Restart policy
+    restart: unless-stopped
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Production frontend with nginx (commented out by default)
+  # Uncomment this section and comment out the above for production
+  # frontend-prod:
+  #   build:
+  #     context: ./frontend
+  #     target: production
+  #   container_name: blog-frontend-prod
+  #   ports:
+  #     - "80:80"  # Nginx HTTP
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - default
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+# Create standalone network for frontend
+networks:
+  default:
+    driver: bridge
