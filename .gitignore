@@ -1,3 +1,6 @@
+# ignore lovable frontend while we build it
+frontend/*
+
 # Blog Poster Service .gitignore
 
 # Environment files - CRITICAL: Never commit these

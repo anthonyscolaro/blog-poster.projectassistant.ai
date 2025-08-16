@@ -8,7 +8,8 @@
       "Bash(chmod:*)",
       "Bash(python:*)",
       "Bash(mkdir:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "additionalDirectories": [

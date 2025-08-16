@@ -280,7 +280,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error
 
-      toast.success('Account created! Please check your email to verify.')
+      // Auto sign in after signup (if email verification is not required)
+      if (data.session) {
+        toast.success('Account created successfully!')
+        navigate('/onboarding')
+      } else {
+        toast.success('Account created! Please check your email to verify.')
+        navigate('/auth/verify-email')
+      }
       
       // Note: Organization and profile creation happens automatically
       // via the handle_new_user() database trigger
@@ -623,6 +630,141 @@ export default function Login() {
 }
 ```
 
+### 5. Email Verification Page
+
+```typescript
+// src/pages/auth/VerifyEmail.tsx
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/Button'
+import { Alert } from '@/components/ui/Alert'
+import { Mail, CheckCircle, Clock } from 'lucide-react'
+import { supabase } from '@/services/supabase'
+import { toast } from 'react-hot-toast'
+
+export function VerifyEmail() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const [resending, setResending] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  useEffect(() => {
+    // If user is already verified, redirect to dashboard
+    if (user?.email_confirmed_at) {
+      navigate('/dashboard')
+    }
+  }, [user, navigate])
+
+  useEffect(() => {
+    // Cooldown timer
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
+
+  const handleResendEmail = async () => {
+    if (!user?.email || resendCooldown > 0) return
+
+    setResending(true)
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/onboarding`
+        }
+      })
+
+      if (error) throw error
+
+      toast.success('Verification email sent!')
+      setResendCooldown(60) // 60 second cooldown
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to resend email')
+    } finally {
+      setResending(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full mb-4">
+            <Mail className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+          </div>
+          
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Check Your Email
+          </h1>
+          
+          <p className="text-gray-600 dark:text-gray-400">
+            We've sent a verification link to:
+          </p>
+          <p className="font-medium text-gray-900 dark:text-white mt-1">
+            {user?.email}
+          </p>
+        </div>
+
+        <Alert variant="info" className="mb-6">
+          <Clock className="w-4 h-4" />
+          <p className="text-sm">
+            The verification link will expire in 24 hours. Please check your spam folder if you don't see the email.
+          </p>
+        </Alert>
+
+        <div className="space-y-4">
+          <Button
+            onClick={handleResendEmail}
+            disabled={resending || resendCooldown > 0}
+            variant="outline"
+            fullWidth
+            loading={resending}
+          >
+            {resendCooldown > 0 
+              ? `Resend in ${resendCooldown}s` 
+              : 'Resend Verification Email'
+            }
+          </Button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">
+                Already verified?
+              </span>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => navigate('/login')}
+            fullWidth
+          >
+            Back to Login
+          </Button>
+        </div>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Having trouble?{' '}
+            <Link
+              to="/contact"
+              className="text-purple-600 hover:text-purple-500 font-medium"
+            >
+              Contact Support
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
 ## Key Improvements
 
 ✅ **Organization-based multi-tenancy** - All queries filtered by organization
@@ -634,5 +776,7 @@ export default function Login() {
 ✅ **Onboarding flow** - Redirect to onboarding if not completed
 ✅ **Security headers** - Proper auth configuration
 ✅ **Permission hooks** - useRole() and usePermission() for easy access control
+✅ **Auto-signin on signup** - Immediate access if email verification disabled
+✅ **Email verification page** - Proper UX for email confirmation flow
 
 This authentication system provides enterprise-grade security with proper multi-tenancy support.

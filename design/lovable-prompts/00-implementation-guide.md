@@ -54,6 +54,100 @@ This guide provides the complete blueprint for building Blog-Poster as a multi-t
 4. **Legal Fact Checker Agent** - Verifies compliance and accuracy
 5. **WordPress Publishing Agent** - Deploys to customer's WordPress sites
 
+## 🏗️ Hybrid Architecture - IMPORTANT FOR LOVABLE
+
+**Blog-Poster uses a hybrid architecture combining Supabase AND FastAPI backends:**
+
+### What Uses Supabase (Direct Database)
+- **Authentication** - Supabase Auth with JWT tokens
+- **Data Storage** - All tables (users, articles, pipelines, etc.)
+- **Real-time Updates** - Live subscriptions for pipeline status, notifications
+- **File Storage** - Images, documents, exports
+- **Row Level Security** - Multi-tenant data isolation
+
+### What Uses FastAPI Backend (Port 8088)
+- **Agent Orchestration** - Running the 5-agent pipeline
+- **AI Processing** - LLM calls to Claude, GPT-4, etc.
+- **External APIs** - Jina AI, web scraping, research
+- **SEO Analysis** - Complex content scoring algorithms
+- **WordPress Publishing** - WPGraphQL integration
+- **Cost Calculations** - Token counting, usage tracking
+
+### Integration Pattern for All Components
+
+Every Lovable prompt should include this backend integration notice:
+
+```typescript
+// src/services/api.ts
+import { supabase } from '@/services/supabase'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8088'
+
+export class APIClient {
+  // For AI/Processing tasks - use FastAPI
+  async executePipeline(config: PipelineConfig) {
+    const response = await fetch(`${API_URL}/api/v1/pipeline/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify(config)
+    })
+    return response.json()
+  }
+
+  // For data operations - use Supabase directly
+  async getArticles(organizationId: string) {
+    return supabase
+      .from('articles')
+      .select('*')
+      .eq('organization_id', organizationId)
+  }
+}
+
+// Mock responses for frontend-only development
+const MOCK_RESPONSES = {
+  '/api/v1/pipeline/execute': {
+    id: 'mock-pipeline-123',
+    status: 'running',
+    agents_completed: ['competitor_monitoring'],
+    estimated_cost: 1.25
+  },
+  '/api/v1/seo/analyze': {
+    score: 85,
+    issues: [],
+    suggestions: ['Add more internal links', 'Optimize meta description']
+  }
+}
+```
+
+### Backend Integration Requirements
+
+All prompts MUST include:
+1. **API endpoint documentation** - List all FastAPI endpoints used
+2. **Mock data for development** - Allow frontend-only testing
+3. **Error handling** - Graceful fallback when API unavailable
+4. **Supabase-first approach** - Use database for all data storage
+
+### Example Prompt Structure
+
+```markdown
+## Backend Integration Notice
+
+This component uses Blog-Poster's hybrid architecture:
+- **Data Storage**: Supabase tables (direct queries)
+- **AI Processing**: FastAPI endpoints (when needed)
+- **Real-time**: Supabase subscriptions
+
+### API Endpoints Used:
+- POST `/api/v1/seo/analyze` - Analyze article SEO score
+- POST `/api/v1/pipeline/execute` - Start content pipeline
+
+### Development Mode:
+When FastAPI backend is unavailable, mock responses are provided for testing.
+```
+
 ## Complete Route Structure
 
 ### Public Routes (No Auth Required)
@@ -181,6 +275,18 @@ This guide provides the complete blueprint for building Blog-Poster as a multi-t
 
 ## ⚠️ CORRECT Implementation Order
 
+> **Final Update (Jan 2025)**: The pipeline management system has been fully corrected based on Lovable's analysis. The current `04-pipeline-management.md`:
+> - ✅ Uses correct import path: `@/services/supabase`
+> - ✅ Uses existing authentication: `@/contexts/AuthContext`  
+> - ✅ Extends existing `PipelineStatus` component from dashboard
+> - ✅ Uses existing shared UI components from `08-shared-components.md`
+> - ✅ Creates only missing UI components (Badge, Alert, Tabs, etc.)
+> - ✅ Works with existing `pipelines` table structure
+> - ✅ Real-time updates via Supabase subscriptions
+> - ✅ No backend API dependency (uses Supabase directly)
+> 
+> All previous versions with incorrect imports have been archived. This version is ready for implementation.
+
 ### Phase 1: Database & Foundation (Start Here)
 
 Execute these prompts in this EXACT order for proper setup:
@@ -206,7 +312,7 @@ Execute these prompts in this EXACT order for proper setup:
 ### Phase 3: Core Application
 
 10. **`03-dashboard.md`** - Main dashboard with metrics
-11. **`04-pipeline-management.md`** - Pipeline orchestration UI
+11. **`04-pipeline-management.md`** - Pipeline orchestration UI with Supabase real-time
 12. **`05-article-management.md`** - Article CRUD with editor
 
 ### Phase 4: Team & Billing
