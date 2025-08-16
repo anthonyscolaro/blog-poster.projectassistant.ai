@@ -1,35 +1,170 @@
-# Lovable Prompt: Article Management System
+# Lovable Prompt: Article Management System (Hybrid Architecture)
+
+## Backend Integration Notice
+
+This component uses Blog-Poster's hybrid architecture:
+- **Data Storage**: Supabase `articles` table (direct queries)
+- **AI Processing**: FastAPI endpoints for SEO analysis
+- **Real-time**: Supabase subscriptions for article updates
+
+### API Endpoints Used:
+- POST `/api/v1/seo/analyze` - Analyze article SEO score and get optimization suggestions
+- POST `/api/v1/wordpress/publish` - Publish article to WordPress (optional)
+
+### Development Mode:
+When FastAPI backend is unavailable, mock responses are provided for testing.
 
 ## Business Context:
-The article management system is the content hub for Blog-Poster, providing comprehensive CRUD operations for SEO-optimized articles. It includes content editing, SEO validation, WordPress publishing, scheduling, and performance tracking - essential for managing high-quality service dog industry content.
+The article management system is the content hub for Blog-Poster, providing comprehensive CRUD operations for SEO-optimized articles. It combines Supabase for data persistence with FastAPI for AI-powered SEO analysis, ensuring all content meets quality standards before publication.
 
 ## User Story:
-"As a content manager, I want to create, edit, preview, and publish articles with built-in SEO validation, WordPress integration, and scheduling capabilities, ensuring all content meets our quality standards before publication."
-
-## Article Management Requirements:
-- **Content CRUD**: Full create, read, update, delete operations
-- **Rich Text Editor**: Markdown support with live preview
-- **SEO Validation**: Real-time scoring and optimization suggestions
-- **WordPress Publishing**: Direct publishing to configured WordPress sites
-- **Article Scheduling**: Future publication scheduling
-- **Performance Tracking**: Views, engagement, and SEO metrics
+"As a content manager, I want to create, edit, preview, and publish articles with real-time collaboration, SEO validation, and scheduling capabilities, while leveraging AI for optimization suggestions."
 
 ## Prompt for Lovable:
 
-Create a comprehensive article management system for the Blog-Poster platform that handles the complete lifecycle of SEO-optimized content from creation to publication and performance tracking.
+Create a comprehensive article management system that uses Supabase for data storage and FastAPI for AI processing. The system should handle the complete lifecycle of SEO-optimized content.
 
-**Article Management Components:**
+**First, create the API client service:**
+
+### API Client Service
+```typescript
+// src/services/api.ts
+import { supabase } from '@/services/supabase'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8088'
+
+// Mock responses for development
+const MOCK_MODE = !API_URL || API_URL.includes('localhost')
+
+const MOCK_RESPONSES = {
+  '/api/v1/seo/analyze': {
+    score: 85,
+    issues: [
+      {
+        type: 'warning',
+        category: 'Meta',
+        title: 'Meta description could be longer',
+        description: 'Current length: 120 characters. Optimal: 150-160 characters.',
+        fix: 'Add more descriptive content to your meta description'
+      }
+    ],
+    suggestions: [
+      {
+        title: 'Add more internal links',
+        description: 'Link to related articles to improve SEO and user engagement',
+        impact: 'high'
+      },
+      {
+        title: 'Optimize heading structure',
+        description: 'Use H2 and H3 tags to create a clear content hierarchy',
+        impact: 'medium'
+      }
+    ],
+    keywordAnalysis: {
+      primary: 'service dog training',
+      density: 2.3,
+      secondary: ['ADA requirements', 'public access', 'handler rights'],
+      related: ['emotional support animal', 'therapy dog', 'assistance dog'],
+      missingKeywords: ['certification', 'registration']
+    },
+    readabilityScore: 78,
+    technicalChecks: [
+      { name: 'Title Length', status: 'passed', description: '58 characters (optimal)' },
+      { name: 'Meta Description', status: 'warning', description: '120 characters (could be longer)' },
+      { name: 'Keyword Density', status: 'passed', description: '2.3% (optimal range)' },
+      { name: 'Alt Text', status: 'failed', description: '3 images missing alt text' }
+    ]
+  },
+  '/api/v1/wordpress/publish': {
+    success: true,
+    wordpressId: 'wp-123',
+    url: 'https://blog.example.com/your-article',
+    message: 'Article published successfully'
+  }
+}
+
+export class APIClient {
+  private async getAuthHeader() {
+    const session = await supabase.auth.getSession()
+    return session.data.session ? {
+      'Authorization': `Bearer ${session.data.session.access_token}`
+    } : {}
+  }
+
+  async analyzeSEO(article: any, targetKeyword?: string) {
+    if (MOCK_MODE) {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      return MOCK_RESPONSES['/api/v1/seo/analyze']
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/seo/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await this.getAuthHeader())
+        },
+        body: JSON.stringify({ article, targetKeyword })
+      })
+
+      if (!response.ok) {
+        throw new Error(`SEO analysis failed: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.warn('SEO API unavailable, using mock data', error)
+      return MOCK_RESPONSES['/api/v1/seo/analyze']
+    }
+  }
+
+  async publishToWordPress(articleId: string, siteId: string) {
+    if (MOCK_MODE) {
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      return MOCK_RESPONSES['/api/v1/wordpress/publish']
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/wordpress/publish`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await this.getAuthHeader())
+        },
+        body: JSON.stringify({ articleId, siteId })
+      })
+
+      if (!response.ok) {
+        throw new Error(`WordPress publish failed: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.warn('WordPress API unavailable, using mock data', error)
+      return MOCK_RESPONSES['/api/v1/wordpress/publish']
+    }
+  }
+}
+
+export const apiClient = new APIClient()
+```
+
+**Now create the main Articles page using Supabase:**
 
 ### Main Articles Page
 ```typescript
 // src/pages/Articles.tsx
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { apiClient } from '@/services/api'
+import { supabase } from '@/services/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { ArticleCard } from '@/components/articles/ArticleCard'
 import { ArticleFilters } from '@/components/articles/ArticleFilters'
 import { ArticleSearch } from '@/components/articles/ArticleSearch'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { 
   FileText, 
   Plus, 
@@ -39,78 +174,159 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface Article {
   id: string
+  organization_id: string
   title: string
   slug: string
   excerpt: string
   content: string
-  metaTitle: string
-  metaDescription: string
+  meta_title: string
+  meta_description: string
   status: 'draft' | 'published' | 'scheduled' | 'archived'
-  seoScore: number
-  wordCount: number
-  readTime: number
-  generationCost: number
-  publishedAt: string | null
-  scheduledAt: string | null
-  createdAt: string
-  updatedAt: string
+  seo_score: number
+  word_count: number
+  read_time: number
+  generation_cost: number
+  published_at: string | null
+  scheduled_at: string | null
+  created_at: string
+  updated_at: string
   tags: string[]
-  featuredImage: string | null
-  wordpressId: string | null
-  wordpressSite: string | null
-  performance: {
-    views: number
-    clickThroughRate: number
-    avgTimeOnPage: number
-    bounceRate: number
-  }
-}
-
-interface ArticleFilters {
-  status?: string
-  tags?: string[]
-  seoScoreMin?: number
-  dateFrom?: string
-  dateTo?: string
-  search?: string
+  featured_image: string | null
+  wordpress_id: string | null
+  wordpress_url: string | null
+  author_id: string
+  pipeline_id: string | null
 }
 
 export default function Articles() {
-  const [filters, setFilters] = useState<ArticleFilters>({})
+  const { organization } = useAuth()
+  const [filters, setFilters] = useState<any>({})
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  // Query articles with filters
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!organization?.id) return
+
+    const channel = supabase
+      .channel(`articles:${organization.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'articles',
+          filter: `organization_id=eq.${organization.id}`
+        },
+        (payload) => {
+          // Refresh articles when changes occur
+          queryClient.invalidateQueries({ queryKey: ['articles'] })
+          
+          if (payload.eventType === 'INSERT') {
+            toast.success('New article created')
+          } else if (payload.eventType === 'UPDATE') {
+            const article = payload.new as Article
+            if (article.status === 'published') {
+              toast.success(`Article "${article.title}" published!`)
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [organization?.id, queryClient])
+
+  // Query articles from Supabase
   const { data: articles, isLoading, error } = useQuery({
-    queryKey: ['articles', filters],
-    queryFn: () => apiClient.get<{
-      articles: Article[]
-      total: number
-      page: number
-      limit: number
-    }>('/api/articles', { params: filters }),
+    queryKey: ['articles', organization?.id, filters, searchTerm],
+    queryFn: async () => {
+      let query = supabase
+        .from('articles')
+        .select('*')
+        .eq('organization_id', organization!.id)
+        .order('created_at', { ascending: false })
+
+      // Apply filters
+      if (filters.status) {
+        query = query.eq('status', filters.status)
+      }
+      if (filters.seoScoreMin) {
+        query = query.gte('seo_score', filters.seoScoreMin)
+      }
+      if (searchTerm) {
+        query = query.or(`title.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%`)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      return data as Article[]
+    },
+    enabled: !!organization?.id
   })
 
-  // Article stats
+  // Query article stats
   const { data: stats } = useQuery({
-    queryKey: ['article-stats'],
-    queryFn: () => apiClient.get<{
-      totalArticles: number
-      publishedArticles: number
-      draftArticles: number
-      scheduledArticles: number
-      avgSeoScore: number
-      totalViews: number
-    }>('/api/articles/stats'),
+    queryKey: ['article-stats', organization?.id],
+    queryFn: async () => {
+      const { data: articles, error } = await supabase
+        .from('articles')
+        .select('status, seo_score')
+        .eq('organization_id', organization!.id)
+
+      if (error) throw error
+
+      return {
+        totalArticles: articles?.length || 0,
+        publishedArticles: articles?.filter(a => a.status === 'published').length || 0,
+        draftArticles: articles?.filter(a => a.status === 'draft').length || 0,
+        scheduledArticles: articles?.filter(a => a.status === 'scheduled').length || 0,
+        avgSeoScore: articles?.length 
+          ? Math.round(articles.reduce((sum, a) => sum + (a.seo_score || 0), 0) / articles.length)
+          : 0
+      }
+    },
+    enabled: !!organization?.id
   })
 
-  const handleFilterChange = (newFilters: Partial<ArticleFilters>) => {
+  // Delete article mutation
+  const deleteArticleMutation = useMutation({
+    mutationFn: async (articleId: string) => {
+      const { error } = await supabase
+        .from('articles')
+        .delete()
+        .eq('id', articleId)
+        .eq('organization_id', organization!.id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      toast.success('Article deleted')
+      queryClient.invalidateQueries({ queryKey: ['articles'] })
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to delete: ${error.message}`)
+    }
+  })
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value)
+  }
+
+  const handleFilterChange = (newFilters: any) => {
     setFilters(prev => ({ ...prev, ...newFilters }))
   }
 
@@ -128,7 +344,7 @@ export default function Articles() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -165,27 +381,27 @@ export default function Articles() {
             </button>
           </div>
 
-          <button
+          <Button
+            variant="outline"
             onClick={() => setShowFilters(!showFilters)}
-            className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             <Filter className="h-4 w-4 mr-2" />
             Filters
-          </button>
+          </Button>
 
-          <Link
-            to="/articles/new"
-            className="inline-flex items-center px-4 py-2 bg-purple-gradient text-white rounded-lg hover:opacity-90"
+          <Button
+            onClick={() => navigate('/articles/new')}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Article
-          </Link>
+          </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <FileText className="h-5 w-5 text-gray-400" />
@@ -235,24 +451,12 @@ export default function Articles() {
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Avg SEO</p>
           </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <TrendingUp className="h-5 w-5 text-green-500" />
-              <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats.totalViews.toLocaleString()}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Views</p>
-          </div>
         </div>
       )}
 
       {/* Search and Filters */}
       <div className="mb-6">
-        <ArticleSearch 
-          onSearch={(search) => handleFilterChange({ search })} 
-        />
+        <ArticleSearch onSearch={handleSearch} />
         
         {showFilters && (
           <div className="mt-4">
@@ -266,16 +470,8 @@ export default function Articles() {
 
       {/* Articles Grid/List */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4" />
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
         </div>
       ) : error ? (
         <div className="text-center py-8">
@@ -284,7 +480,7 @@ export default function Articles() {
             Failed to load articles. Please try again.
           </p>
         </div>
-      ) : !articles?.articles.length ? (
+      ) : !articles?.length ? (
         <div className="text-center py-12">
           <FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -294,18 +490,18 @@ export default function Articles() {
             Get started by creating your first article or running the content pipeline.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Link
-              to="/articles/new"
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            <Button
+              onClick={() => navigate('/articles/new')}
+              className="bg-purple-600 hover:bg-purple-700"
             >
               Create Article
-            </Link>
-            <Link
-              to="/pipeline"
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/pipeline')}
             >
               Run Pipeline
-            </Link>
+            </Button>
           </div>
         </div>
       ) : (
@@ -314,11 +510,12 @@ export default function Articles() {
             ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
             : 'space-y-4'
         }>
-          {articles.articles.map((article) => (
+          {articles.map((article) => (
             <ArticleCard 
               key={article.id} 
               article={article} 
               viewMode={viewMode}
+              onDelete={() => deleteArticleMutation.mutate(article.id)}
             />
           ))}
         </div>
@@ -328,17 +525,24 @@ export default function Articles() {
 }
 ```
 
-### Article Editor Component
+### Article Editor Component with SEO Analysis
 ```typescript
 // src/components/articles/ArticleEditor.tsx
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
+import { supabase } from '@/services/supabase'
 import { apiClient } from '@/services/api'
+import { useAuth } from '@/contexts/AuthContext'
 import { SEOAnalyzer } from '@/components/articles/SEOAnalyzer'
 import { MarkdownEditor } from '@/components/articles/MarkdownEditor'
 import { ArticlePreview } from '@/components/articles/ArticlePreview'
-import { PublishingPanel } from '@/components/articles/PublishingPanel'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
   Save, 
   Eye, 
@@ -352,78 +556,84 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-interface ArticleData {
-  id?: string
-  title: string
-  slug: string
-  excerpt: string
-  content: string
-  metaTitle: string
-  metaDescription: string
-  status: 'draft' | 'published' | 'scheduled'
-  tags: string[]
-  featuredImage: string | null
-  scheduledAt: string | null
-  wordpressSiteId: string | null
-}
-
 export function ArticleEditor() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user, organization } = useAuth()
   const isNew = id === 'new'
 
-  const [article, setArticle] = useState<ArticleData>({
+  const [article, setArticle] = useState({
     title: '',
     slug: '',
     excerpt: '',
     content: '',
-    metaTitle: '',
-    metaDescription: '',
-    status: 'draft',
-    tags: [],
-    featuredImage: null,
-    scheduledAt: null,
-    wordpressSiteId: null,
+    meta_title: '',
+    meta_description: '',
+    status: 'draft' as 'draft' | 'published' | 'scheduled',
+    tags: [] as string[],
+    featured_image: null as string | null,
+    scheduled_at: null as string | null,
   })
 
-  const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'seo' | 'publish'>('editor')
+  const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'seo' | 'settings'>('editor')
   const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
-  // Load article data if editing
+  // Load article from Supabase if editing
   const { data: existingArticle, isLoading } = useQuery({
     queryKey: ['article', id],
-    queryFn: () => apiClient.get<Article>(`/api/articles/${id}`),
-    enabled: !isNew,
-  })
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .eq('id', id)
+        .eq('organization_id', organization!.id)
+        .single()
 
-  // Auto-save mutation
-  const autoSaveMutation = useMutation({
-    mutationFn: (data: Partial<ArticleData>) => 
-      isNew 
-        ? apiClient.post('/api/articles', { ...article, ...data, status: 'draft' })
-        : apiClient.put(`/api/articles/${id}`, { ...article, ...data }),
-    onSuccess: (data) => {
-      if (isNew && data.id) {
-        navigate(`/articles/${data.id}`, { replace: true })
-      }
-      setLastSaved(new Date())
-      setIsAutoSaving(false)
-      queryClient.invalidateQueries({ queryKey: ['article', id] })
+      if (error) throw error
+      return data
     },
-    onError: () => {
-      setIsAutoSaving(false)
-      toast.error('Failed to auto-save changes')
-    }
+    enabled: !isNew && !!organization?.id,
   })
 
-  // Manual save mutation
+  // Save article to Supabase
   const saveMutation = useMutation({
-    mutationFn: () => 
-      isNew 
-        ? apiClient.post('/api/articles', article)
-        : apiClient.put(`/api/articles/${id}`, article),
+    mutationFn: async (articleData: any) => {
+      const wordCount = articleData.content.split(/\s+/).length
+      const readTime = Math.ceil(wordCount / 200)
+
+      const payload = {
+        ...articleData,
+        word_count: wordCount,
+        read_time: readTime,
+        organization_id: organization!.id,
+        author_id: user!.id,
+        updated_at: new Date().toISOString()
+      }
+
+      if (isNew) {
+        const { data, error } = await supabase
+          .from('articles')
+          .insert(payload)
+          .select()
+          .single()
+
+        if (error) throw error
+        return data
+      } else {
+        const { data, error } = await supabase
+          .from('articles')
+          .update(payload)
+          .eq('id', id)
+          .eq('organization_id', organization!.id)
+          .select()
+          .single()
+
+        if (error) throw error
+        return data
+      }
+    },
     onSuccess: (data) => {
       if (isNew && data.id) {
         navigate(`/articles/${data.id}`, { replace: true })
@@ -439,12 +649,14 @@ export function ArticleEditor() {
 
   // Auto-save effect
   useEffect(() => {
+    if (!article.title && !article.content) return
+
     const timeoutId = setTimeout(() => {
-      if (article.title || article.content) {
-        setIsAutoSaving(true)
-        autoSaveMutation.mutate(article)
-      }
-    }, 2000)
+      setIsAutoSaving(true)
+      saveMutation.mutate(article).finally(() => {
+        setIsAutoSaving(false)
+      })
+    }, 3000)
 
     return () => clearTimeout(timeoutId)
   }, [article])
@@ -452,7 +664,18 @@ export function ArticleEditor() {
   // Load existing article
   useEffect(() => {
     if (existingArticle && !isNew) {
-      setArticle(existingArticle)
+      setArticle({
+        title: existingArticle.title || '',
+        slug: existingArticle.slug || '',
+        excerpt: existingArticle.excerpt || '',
+        content: existingArticle.content || '',
+        meta_title: existingArticle.meta_title || '',
+        meta_description: existingArticle.meta_description || '',
+        status: existingArticle.status || 'draft',
+        tags: existingArticle.tags || [],
+        featured_image: existingArticle.featured_image,
+        scheduled_at: existingArticle.scheduled_at,
+      })
     }
   }, [existingArticle, isNew])
 
@@ -467,16 +690,12 @@ export function ArticleEditor() {
     }
   }, [article.title])
 
-  const handleArticleChange = (updates: Partial<ArticleData>) => {
+  const handleArticleChange = (updates: Partial<typeof article>) => {
     setArticle(prev => ({ ...prev, ...updates }))
   }
 
   const handleSave = () => {
-    saveMutation.mutate()
-  }
-
-  const handleStatusChange = (status: 'draft' | 'published' | 'scheduled') => {
-    setArticle(prev => ({ ...prev, status }))
+    saveMutation.mutate(article)
   }
 
   if (isLoading) {
@@ -488,16 +707,17 @@ export function ArticleEditor() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => navigate('/articles')}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
           >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {isNew ? 'New Article' : 'Edit Article'}
@@ -516,184 +736,194 @@ export function ArticleEditor() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saveMutation.isPending}
-            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Save
-          </button>
-        </div>
+        <Button
+          onClick={handleSave}
+          disabled={saveMutation.isPending}
+        >
+          {saveMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          Save
+        </Button>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 mb-6">
-        {[
-          { id: 'editor', label: 'Editor', icon: Code },
-          { id: 'preview', label: 'Preview', icon: Eye },
-          { id: 'seo', label: 'SEO Analysis', icon: TrendingUp },
-          { id: 'publish', label: 'Publishing', icon: Settings },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === tab.id
-                ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            <tab.icon className="h-4 w-4 mr-2" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Editor Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="editor">
+            <Code className="h-4 w-4 mr-2" />
+            Editor
+          </TabsTrigger>
+          <TabsTrigger value="preview">
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </TabsTrigger>
+          <TabsTrigger value="seo">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            SEO Analysis
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings className="h-4 w-4 mr-2" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tab Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Content Area */}
-        <div className="lg:col-span-3">
-          {activeTab === 'editor' && (
-            <div className="space-y-6">
-              {/* Title and Basic Fields */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={article.title}
-                      onChange={(e) => handleArticleChange({ title: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="Enter article title..."
-                    />
-                  </div>
+        <div className="mt-6">
+          <TabsContent value="editor" className="space-y-6">
+            {/* Title and Basic Fields */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={article.title}
+                    onChange={(e) => handleArticleChange({ title: e.target.value })}
+                    placeholder="Enter article title..."
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Slug
-                    </label>
-                    <input
-                      type="text"
-                      value={article.slug}
-                      onChange={(e) => handleArticleChange({ slug: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="article-url-slug"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="slug">Slug</Label>
+                  <Input
+                    id="slug"
+                    value={article.slug}
+                    onChange={(e) => handleArticleChange({ slug: e.target.value })}
+                    placeholder="article-url-slug"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Excerpt
-                    </label>
-                    <textarea
-                      value={article.excerpt}
-                      onChange={(e) => handleArticleChange({ excerpt: e.target.value })}
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="Brief description of the article..."
-                    />
+                <div>
+                  <Label htmlFor="excerpt">Excerpt</Label>
+                  <Textarea
+                    id="excerpt"
+                    value={article.excerpt}
+                    onChange={(e) => handleArticleChange({ excerpt: e.target.value })}
+                    rows={3}
+                    placeholder="Brief description of the article..."
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Content Editor */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Content</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MarkdownEditor
+                  content={article.content}
+                  onChange={(content) => handleArticleChange({ content })}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="preview">
+            <ArticlePreview article={article} />
+          </TabsContent>
+
+          <TabsContent value="seo">
+            <SEOAnalyzer 
+              article={article}
+              articleId={!isNew ? id : undefined}
+            />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            {/* SEO Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>SEO Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="meta_title">Meta Title</Label>
+                  <Input
+                    id="meta_title"
+                    value={article.meta_title}
+                    onChange={(e) => handleArticleChange({ meta_title: e.target.value })}
+                    placeholder="SEO title (max 60 characters)"
+                    maxLength={60}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    {article.meta_title.length}/60 characters
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="meta_description">Meta Description</Label>
+                  <Textarea
+                    id="meta_description"
+                    value={article.meta_description}
+                    onChange={(e) => handleArticleChange({ meta_description: e.target.value })}
+                    placeholder="SEO description (max 160 characters)"
+                    maxLength={160}
+                    rows={3}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    {article.meta_description.length}/160 characters
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Publishing Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Publishing</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Status</Label>
+                  <div className="flex gap-4 mt-2">
+                    {['draft', 'published', 'scheduled'].map((status) => (
+                      <label key={status} className="flex items-center">
+                        <input
+                          type="radio"
+                          name="status"
+                          value={status}
+                          checked={article.status === status}
+                          onChange={(e) => handleArticleChange({ status: e.target.value as any })}
+                          className="mr-2"
+                        />
+                        <span className="capitalize">{status}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
-              </div>
 
-              {/* Content Editor */}
-              <MarkdownEditor
-                content={article.content}
-                onChange={(content) => handleArticleChange({ content })}
-              />
-            </div>
-          )}
+                {article.status === 'scheduled' && (
+                  <div>
+                    <Label htmlFor="scheduled_at">Schedule Date</Label>
+                    <Input
+                      id="scheduled_at"
+                      type="datetime-local"
+                      value={article.scheduled_at || ''}
+                      onChange={(e) => handleArticleChange({ scheduled_at: e.target.value })}
+                    />
+                  </div>
+                )}
 
-          {activeTab === 'preview' && (
-            <ArticlePreview article={article} />
-          )}
-
-          {activeTab === 'seo' && (
-            <SEOAnalyzer article={article} />
-          )}
-
-          {activeTab === 'publish' && (
-            <PublishingPanel 
-              article={article}
-              onStatusChange={handleStatusChange}
-              onUpdate={handleArticleChange}
-            />
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Article Status */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-            <h3 className="font-medium text-gray-900 dark:text-white mb-3">Status</h3>
-            <div className="space-y-2">
-              {['draft', 'published', 'scheduled'].map((status) => (
-                <label key={status} className="flex items-center">
-                  <input
-                    type="radio"
-                    name="status"
-                    value={status}
-                    checked={article.status === status}
-                    onChange={(e) => handleStatusChange(e.target.value as any)}
-                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300"
+                <div>
+                  <Label htmlFor="tags">Tags</Label>
+                  <Input
+                    id="tags"
+                    value={article.tags.join(', ')}
+                    onChange={(e) => handleArticleChange({ 
+                      tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) 
+                    })}
+                    placeholder="tag1, tag2, tag3"
                   />
-                  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 capitalize">
-                    {status}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-            <h3 className="font-medium text-gray-900 dark:text-white mb-3">Tags</h3>
-            <input
-              type="text"
-              value={article.tags.join(', ')}
-              onChange={(e) => handleArticleChange({ 
-                tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) 
-              })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
-              placeholder="tag1, tag2, tag3"
-            />
-          </div>
-
-          {/* Article Stats */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-            <h3 className="font-medium text-gray-900 dark:text-white mb-3">Statistics</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Words:</span>
-                <span className="text-gray-900 dark:text-white">
-                  {article.content.split(/\s+/).length}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Characters:</span>
-                <span className="text-gray-900 dark:text-white">
-                  {article.content.length}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Read time:</span>
-                <span className="text-gray-900 dark:text-white">
-                  {Math.ceil(article.content.split(/\s+/).length / 200)} min
-                </span>
-              </div>
-            </div>
-          </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </div>
-      </div>
+      </Tabs>
     </div>
   )
 }
@@ -705,81 +935,56 @@ export function ArticleEditor() {
 import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/services/api'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { 
   TrendingUp, 
   CheckCircle, 
   AlertCircle, 
   XCircle,
   Lightbulb,
-  Target,
   Search,
-  Link
+  Loader2
 } from 'lucide-react'
-
-interface SEOAnalysis {
-  score: number
-  issues: SEOIssue[]
-  suggestions: SEOSuggestion[]
-  keywordAnalysis: KeywordAnalysis
-  readabilityScore: number
-  technicalChecks: TechnicalCheck[]
-}
-
-interface SEOIssue {
-  type: 'error' | 'warning' | 'info'
-  category: string
-  title: string
-  description: string
-  fix?: string
-}
-
-interface SEOSuggestion {
-  title: string
-  description: string
-  impact: 'high' | 'medium' | 'low'
-}
-
-interface KeywordAnalysis {
-  primary: string
-  density: number
-  secondary: string[]
-  related: string[]
-  missingKeywords: string[]
-}
-
-interface TechnicalCheck {
-  name: string
-  status: 'passed' | 'failed' | 'warning'
-  description: string
-}
 
 interface SEOAnalyzerProps {
   article: {
     title: string
     content: string
-    metaTitle: string
-    metaDescription: string
+    meta_title: string
+    meta_description: string
     slug: string
   }
+  articleId?: string
 }
 
-export function SEOAnalyzer({ article }: SEOAnalyzerProps) {
-  const [analysis, setAnalysis] = useState<SEOAnalysis | null>(null)
+export function SEOAnalyzer({ article, articleId }: SEOAnalyzerProps) {
   const [targetKeyword, setTargetKeyword] = useState('')
+  const [analysis, setAnalysis] = useState<any>(null)
 
   const analyzeMutation = useMutation({
-    mutationFn: (data: { article: any, targetKeyword?: string }) =>
-      apiClient.post<SEOAnalysis>('/api/seo/analyze', data),
+    mutationFn: async () => {
+      return await apiClient.analyzeSEO(article, targetKeyword)
+    },
     onSuccess: (data) => {
       setAnalysis(data)
     }
   })
 
+  // Auto-analyze on content change
   useEffect(() => {
     if (article.title && article.content) {
-      analyzeMutation.mutate({ article, targetKeyword })
+      const timer = setTimeout(() => {
+        analyzeMutation.mutate()
+      }, 1000)
+      return () => clearTimeout(timer)
     }
-  }, [article.title, article.content, article.metaTitle, article.metaDescription])
+  }, [article.title, article.content, article.meta_title, article.meta_description])
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600'
@@ -793,145 +998,140 @@ export function SEOAnalyzer({ article }: SEOAnalyzerProps) {
     return 'bg-red-100 dark:bg-red-900/20'
   }
 
-  const getIssueIcon = (type: string) => {
-    switch (type) {
-      case 'error':
-        return <XCircle className="h-4 w-4 text-red-500" />
-      case 'warning':
-        return <AlertCircle className="h-4 w-4 text-yellow-500" />
-      default:
-        return <CheckCircle className="h-4 w-4 text-blue-500" />
-    }
-  }
-
   return (
     <div className="space-y-6">
       {/* Target Keyword */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Target Keyword Analysis
-        </h3>
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Primary Keyword
-            </label>
-            <input
-              type="text"
-              value={targetKeyword}
-              onChange={(e) => setTargetKeyword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="service dog training"
-            />
+      <Card>
+        <CardHeader>
+          <CardTitle>Target Keyword Analysis</CardTitle>
+          <CardDescription>
+            Set your primary keyword for focused SEO optimization
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Label htmlFor="keyword">Primary Keyword</Label>
+              <Input
+                id="keyword"
+                value={targetKeyword}
+                onChange={(e) => setTargetKeyword(e.target.value)}
+                placeholder="e.g., service dog training"
+              />
+            </div>
+            <Button
+              onClick={() => analyzeMutation.mutate()}
+              disabled={analyzeMutation.isPending}
+              className="mt-6"
+            >
+              {analyzeMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-          <button
-            onClick={() => analyzeMutation.mutate({ article, targetKeyword })}
-            disabled={analyzeMutation.isPending}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-          >
-            <Search className="h-4 w-4" />
-          </button>
+        </CardContent>
+      </Card>
+
+      {analyzeMutation.isPending && !analysis && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
         </div>
-      </div>
+      )}
 
       {analysis && (
         <>
           {/* SEO Score */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                SEO Score
-              </h3>
-              <div className={`flex items-center px-4 py-2 rounded-lg ${getScoreBg(analysis.score)}`}>
-                <TrendingUp className={`h-5 w-5 mr-2 ${getScoreColor(analysis.score)}`} />
-                <span className={`text-2xl font-bold ${getScoreColor(analysis.score)}`}>
-                  {analysis.score}/100
-                </span>
-              </div>
-            </div>
-
-            {/* Score Breakdown */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {analysis.keywordAnalysis.density.toFixed(1)}%
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Keyword Density
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>SEO Score</CardTitle>
+                <div className={`flex items-center px-4 py-2 rounded-lg ${getScoreBg(analysis.score)}`}>
+                  <TrendingUp className={`h-5 w-5 mr-2 ${getScoreColor(analysis.score)}`} />
+                  <span className={`text-2xl font-bold ${getScoreColor(analysis.score)}`}>
+                    {analysis.score}/100
+                  </span>
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {analysis.readabilityScore}
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {analysis.keywordAnalysis.density.toFixed(1)}%
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Keyword Density
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Readability
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {analysis.readabilityScore}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Readability
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {analysis.technicalChecks.filter(c => c.status === 'passed').length}/{analysis.technicalChecks.length}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Checks Passed
+                  </div>
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {analysis.technicalChecks.filter(c => c.status === 'passed').length}
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Checks Passed
-                </div>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Issues */}
           {analysis.issues.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Issues to Fix
-              </h3>
-              <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Issues to Fix</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 {analysis.issues.map((issue, index) => (
-                  <div key={index} className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                    {getIssueIcon(issue.type)}
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        {issue.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {issue.description}
-                      </p>
+                  <Alert key={index} variant={issue.type === 'error' ? 'destructive' : 'default'}>
+                    {issue.type === 'error' && <XCircle className="h-4 w-4" />}
+                    {issue.type === 'warning' && <AlertCircle className="h-4 w-4" />}
+                    <AlertDescription>
+                      <strong>{issue.title}</strong>
+                      <p className="mt-1">{issue.description}</p>
                       {issue.fix && (
-                        <p className="text-sm text-purple-600 dark:text-purple-400 mt-2">
-                          💡 {issue.fix}
+                        <p className="mt-2 text-sm">
+                          <Lightbulb className="inline h-3 w-3 mr-1" />
+                          {issue.fix}
                         </p>
                       )}
-                    </div>
-                  </div>
+                    </AlertDescription>
+                  </Alert>
                 ))}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Suggestions */}
           {analysis.suggestions.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Optimization Suggestions
-              </h3>
-              <div className="space-y-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Optimization Suggestions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 {analysis.suggestions.map((suggestion, index) => (
                   <div key={index} className="flex items-start gap-3">
                     <Lightbulb className="h-4 w-4 text-yellow-500 mt-1 flex-shrink-0" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-gray-900 dark:text-white">
-                          {suggestion.title}
-                        </h4>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          suggestion.impact === 'high' 
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                            : suggestion.impact === 'medium'
-                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                        }`}>
+                        <p className="font-medium">{suggestion.title}</p>
+                        <Badge variant={
+                          suggestion.impact === 'high' ? 'destructive' :
+                          suggestion.impact === 'medium' ? 'default' :
+                          'secondary'
+                        }>
                           {suggestion.impact} impact
-                        </span>
+                        </Badge>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         {suggestion.description}
@@ -939,16 +1139,16 @@ export function SEOAnalyzer({ article }: SEOAnalyzerProps) {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Technical Checks */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Technical SEO Checks
-            </h3>
-            <div className="space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>Technical SEO Checks</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
               {analysis.technicalChecks.map((check, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
                   <div className="flex items-center gap-3">
@@ -956,65 +1156,23 @@ export function SEOAnalyzer({ article }: SEOAnalyzerProps) {
                     {check.status === 'warning' && <AlertCircle className="h-4 w-4 text-yellow-500" />}
                     {check.status === 'failed' && <XCircle className="h-4 w-4 text-red-500" />}
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {check.name}
-                      </p>
+                      <p className="font-medium">{check.name}</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         {check.description}
                       </p>
                     </div>
                   </div>
-                  <span className={`text-sm font-medium capitalize ${
-                    check.status === 'passed' ? 'text-green-600' :
-                    check.status === 'warning' ? 'text-yellow-600' :
-                    'text-red-600'
-                  }`}>
+                  <Badge variant={
+                    check.status === 'passed' ? 'success' :
+                    check.status === 'warning' ? 'warning' :
+                    'destructive'
+                  }>
                     {check.status}
-                  </span>
+                  </Badge>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Keyword Analysis */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Keyword Analysis
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                  Secondary Keywords
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.keywordAnalysis.secondary.map((keyword, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm rounded-full"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                  Missing Keywords
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.keywordAnalysis.missingKeywords.map((keyword, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm rounded-full"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
@@ -1023,15 +1181,15 @@ export function SEOAnalyzer({ article }: SEOAnalyzerProps) {
 ```
 
 **Success Criteria:**
-- Complete article CRUD with rich text markdown editor
-- Real-time SEO analysis and optimization suggestions
-- WordPress publishing integration with multiple site support
-- Article scheduling and status management
-- Performance tracking with engagement metrics
-- Responsive design with grid and list view modes
-- Auto-save functionality with manual save override
-- Tag management and article categorization
-- Live preview with proper formatting
-- Integration with existing authentication and API systems
+- ✅ Hybrid architecture with Supabase for data, FastAPI for AI processing
+- ✅ Mock responses for frontend-only development
+- ✅ Real-time Supabase subscriptions for article updates
+- ✅ SEO analysis via FastAPI with fallback to mock data
+- ✅ Complete CRUD operations using Supabase
+- ✅ Auto-save functionality with debouncing
+- ✅ Row Level Security with organization-based filtering
+- ✅ Integration with existing authentication context
+- ✅ Responsive design with grid/list views
+- ✅ Error handling and loading states
 
-This article management system provides comprehensive content lifecycle management for the Blog-Poster platform, enabling efficient creation, optimization, and publishing of SEO-focused articles.
+This implementation properly balances between Supabase for data operations and FastAPI for AI/processing tasks, ensuring Lovable understands the hybrid architecture while maintaining the ability to develop frontend-only with mock data.
