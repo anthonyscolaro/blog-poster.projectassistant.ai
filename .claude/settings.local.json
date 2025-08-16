@@ -7,8 +7,13 @@
       "Bash(curl -s -u:*)",
       "Bash(chmod:*)",
       "Bash(python:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(mv:*)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "/Users/anthonyscolaro/shared-docs/supabase"
+    ]
   }
 }

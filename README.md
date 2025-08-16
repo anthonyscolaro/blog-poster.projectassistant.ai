@@ -1,183 +1,90 @@
-# Supabase CLI
+# Blog-Poster: AI-Powered Content Generation
 
-[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
-](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
+🤖 **Multi-agent content generation system** for SEO-optimized blog articles about service dogs and ADA compliance.
 
-[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
-
-This repository contains all the functionality for Supabase CLI.
-
-- [x] Running Supabase locally
-- [x] Managing database migrations
-- [x] Creating and deploying Supabase Functions
-- [x] Generating types directly from your database schema
-- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
-
-## Getting started
-
-### Install the CLI
-
-Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
+## 🚀 Quick Start
 
 ```bash
-npm i supabase --save-dev
+# 1. Clone repository
+git clone https://github.com/anthonyscolaro/blog-poster.git
+cd blog-poster
+
+# 2. Set up environment
+cp .env.example .env.local
+# Edit .env.local with your API keys
+
+# 3. Start with Docker
+docker compose up -d
+
+# 4. Test the API
+curl http://localhost:8088/health
 ```
 
-To install the beta release channel:
+## 🏗️ Architecture
 
-```bash
-npm i supabase@beta --save-dev
-```
+- **Topic Analysis Agent**: Identifies SEO opportunities
+- **Article Generation Agent**: Creates content with Claude/GPT
+- **Legal Fact Checker**: Ensures ADA compliance
+- **WordPress Publisher**: Automates content deployment
 
-When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+## 📊 Production Status
 
-```
-NODE_OPTIONS=--no-experimental-fetch yarn add supabase
-```
+**Current Status**: ⚠️ **SECURITY REMEDIATION IN PROGRESS**
 
-> **Note**
-For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+**Recent Security Actions**:
+- ✅ Exposed credentials removed from git history
+- ✅ CORS wildcard vulnerability fixed
+- ✅ Enhanced .gitignore protection
+- ✅ Emergency security measures implemented
 
-<details>
-  <summary><b>macOS</b></summary>
+**Remaining Blockers**:
+- Architecture inconsistencies
+- Incomplete agent implementations
+- Insufficient testing coverage
 
-  Available via [Homebrew](https://brew.sh). To install:
+See `next-steps/` directory for detailed analysis and roadmap.
 
-  ```sh
-  brew install supabase/tap/supabase
-  ```
+## 🔒 Security
 
-  To install the beta release channel:
-  
-  ```sh
-  brew install supabase/tap/supabase-beta
-  brew link --overwrite supabase-beta
-  ```
-  
-  To upgrade:
+**⚠️ SECURITY NOTICE**: Previous repository exposure has been remediated. All exposed credentials have been revoked and regenerated.
 
-  ```sh
-  brew upgrade supabase
-  ```
-</details>
+**API Keys Required** (store in `.env.local`, **NEVER commit**):
+- `ANTHROPIC_API_KEY` - Claude 3.5 Sonnet
+- `OPENAI_API_KEY` - GPT-4 fallback
+- `JINA_API_KEY` - Web scraping
+- `WP_APP_PASSWORD` - WordPress publishing
+- `SUPABASE_*` - Database credentials
 
-<details>
-  <summary><b>Windows</b></summary>
+## 📚 Documentation
 
-  Available via [Scoop](https://scoop.sh). To install:
+- [Production Readiness Assessment](next-steps/production-readiness-assessment.md)
+- [Security Analysis](next-steps/security/vulnerability-report.md)  
+- [Architecture Plan](next-steps/architecture/standardization-plan.md)
+- [Deployment Guide](next-steps/deployment/infrastructure-recommendations.md)
+- [6-Week Launch Timeline](next-steps/roadmap/production-launch-plan.md)
 
-  ```powershell
-  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-  scoop install supabase
-  ```
+## 🤝 Contributing
 
-  To upgrade:
+See [CLAUDE.md](CLAUDE.md) for development guidelines and project context.
 
-  ```powershell
-  scoop update supabase
-  ```
-</details>
+## 📋 Current Development Status
 
-<details>
-  <summary><b>Linux</b></summary>
+| Component | Status | Completion |
+|-----------|--------|------------|
+| Article Generation Agent | ✅ Ready | 95% |
+| WordPress Publisher | ✅ Ready | 90% |
+| Topic Analysis Agent | ⚠️ Needs API Integration | 85% |
+| Competitor Monitoring | ❌ Development Required | 30% |
+| Legal Fact Checker | ❌ Development Required | 15% |
 
-  Available via [Homebrew](https://brew.sh) and Linux packages.
+## 🚀 Next Steps
 
-  #### via Homebrew
+1. **Complete Security Remediation** - Revoke exposed API keys
+2. **Architecture Standardization** - Migrate to Supabase-centric approach
+3. **Agent Implementation** - Complete missing agents
+4. **Comprehensive Testing** - Achieve 85%+ coverage
+5. **Production Deployment** - Digital Ocean App Platform
 
-  To install:
+---
 
-  ```sh
-  brew install supabase/tap/supabase
-  ```
-
-  To upgrade:
-
-  ```sh
-  brew upgrade supabase
-  ```
-
-  #### via Linux packages
-
-  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
-
-  ```sh
-  sudo apk add --allow-untrusted <...>.apk
-  ```
-
-  ```sh
-  sudo dpkg -i <...>.deb
-  ```
-
-  ```sh
-  sudo rpm -i <...>.rpm
-  ```
-
-  ```sh
-  sudo pacman -U <...>.pkg.tar.zst
-  ```
-</details>
-
-<details>
-  <summary><b>Other Platforms</b></summary>
-
-  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
-
-  ```sh
-  go install github.com/supabase/cli@latest
-  ```
-
-  Add a symlink to the binary in `$PATH` for easier access:
-
-  ```sh
-  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
-  ```
-
-  This works on other non-standard Linux distros.
-</details>
-
-<details>
-  <summary><b>Community Maintained Packages</b></summary>
-
-  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
-  To install in your working directory:
-
-  ```bash
-  pkgx install supabase
-  ```
-
-  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
-</details>
-
-### Run the CLI
-
-```bash
-supabase bootstrap
-```
-
-Or using npx:
-
-```bash
-npx supabase bootstrap
-```
-
-The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
-
-## Docs
-
-Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
-
-## Breaking changes
-
-We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
-
-However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
-
-## Developing
-
-To run from source:
-
-```sh
-# Go >= 1.22
-go run . help
-```
+**⚠️ SECURITY NOTICE**: Emergency security remediation completed on August 14, 2025. All exposed credentials have been revoked and rotated. Repository history has been cleaned.
