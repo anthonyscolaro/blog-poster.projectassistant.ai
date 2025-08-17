@@ -6,9 +6,11 @@ import sys
 
 # Set production environment
 os.environ['ENVIRONMENT'] = 'production'
-os.environ['DATABASE_URL'] = 'postgresql://postgres.epftkydwdqerdlhvqili:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnRreWR3ZHFlcmRsaHZxaWxpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTI4NDU0MCwiZXhwIjoyMDcwODYwNTQwfQ.vM4-DdBqqQh9KfsHmuxKlXyNHMVyZ60qZ6kmXHW7k9o@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres'
-os.environ['SUPABASE_URL'] = 'https://epftkydwdqerdlhvqili.supabase.co'
-os.environ['SUPABASE_ANON_KEY'] = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnRreWR3ZHFlcmRsaHZxaWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyODQ1NDAsImV4cCI6MjA3MDg2MDU0MH0.Mn9Re4itgw0w7Qi2RyD4V0vmGx8tLtJPNdbNtpP0-Ng'
+# Try local database that's actually running
+os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/postgres'
+os.environ['SUPABASE_URL'] = 'https://pynlhikthsmduttvihuw.supabase.co'
+os.environ['SUPABASE_ANON_KEY'] = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5bmxoaWt0aHNtZHV0dHZpaHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzODIwMTYsImV4cCI6MjA3MDk1ODAxNn0.BDGAvf1jeX9iiQF7RaouCyzds6NS58guKB4l39AX_uQ'
+os.environ['SUPABASE_SERVICE_KEY'] = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5bmxoaWt0aHNtZHV0dHZpaHV3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTM4MjAxNiwiZXhwIjoyMDcwOTU4MDE2fQ._hyfVCT8sAMVKPZkqjxu3RMW7fX2BEofW05H9G1tSrM'
 
 print("Testing database connection...")
 try:
