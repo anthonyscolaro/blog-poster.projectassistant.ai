@@ -24,11 +24,14 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p templates static config data/articles data/logs
 
+# Make start script executable
+RUN chmod +x /app/start.sh
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8088/health || exit 1
 
 EXPOSE 8088
 
-# Run with single worker for now (memory optimization)
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8088"]
+# Run with startup script for better logging
+CMD ["/app/start.sh"]
