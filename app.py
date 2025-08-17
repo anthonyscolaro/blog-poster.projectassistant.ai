@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize database on startup (required)
-from src.core.database import init_database
+from src.database.connection import init_database
 try:
     init_database()
     logger.info("Database initialized successfully")
@@ -173,7 +173,7 @@ async def startup_event():
     
     # Test database connection
     try:
-        from src.database import test_connection
+        from src.database.connection import test_connection
         if not test_connection():
             logger.error("FATAL: Database connection test failed")
             sys.exit(1)
@@ -189,7 +189,7 @@ async def shutdown_event():
     
     # Close database connections
     try:
-        from src.database import engine
+        from src.database.connection import engine
         engine.dispose()
         logger.info("Database connections closed")
     except Exception as e:
