@@ -8,7 +8,8 @@ import asyncio
 from typing import Dict, Set, Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from fastapi.security import HTTPBearer
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import InvalidTokenError as JWTError
 from supabase import create_client, Client
 from datetime import datetime
 import os
