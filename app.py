@@ -162,22 +162,21 @@ async def startup_event():
     # Verify database connection
     db_url = os.getenv('DATABASE_URL')
     if not db_url:
-        logger.error("FATAL: DATABASE_URL environment variable not set")
-        logger.error("Cannot start application without database connection")
-        sys.exit(1)
-    
-    logger.info(f"Using PostgreSQL database: {db_url.split('@')[1] if '@' in db_url else 'configured'}")
+        logger.warning("DATABASE_URL environment variable not set")
+        logger.warning("App will run with limited functionality")
+    else:
+        logger.info(f"Using PostgreSQL database: {db_url.split('@')[1] if '@' in db_url else 'configured'}")
     
     # Test database connection
     try:
         from src.database.connection import test_connection
         if not test_connection():
-            logger.error("FATAL: Database connection test failed")
-            sys.exit(1)
-        logger.info("Database connection verified")
+            logger.error("Database connection test failed - app will run but may have limited functionality")
+        else:
+            logger.info("Database connection verified")
     except Exception as e:
-        logger.error(f"FATAL: Database connection test failed: {e}")
-        sys.exit(1)
+        logger.error(f"Database connection test failed: {e}")
+        logger.error("App will continue running but database operations will fail")
 
 @app.on_event("shutdown")
 async def shutdown_event():
