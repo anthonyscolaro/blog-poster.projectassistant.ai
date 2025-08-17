@@ -223,8 +223,15 @@ class JWTAuthMiddleware:
         return decorator
 
 
-# Global auth middleware instance
-auth_middleware = JWTAuthMiddleware()
+# Global auth middleware instance (lazy initialization)
+_auth_middleware = None
+
+def get_auth_middleware():
+    """Get or create auth middleware instance"""
+    global _auth_middleware
+    if _auth_middleware is None:
+        _auth_middleware = JWTAuthMiddleware()
+    return _auth_middleware
 
 
 async def add_auth_to_request(request: Request, call_next):
@@ -245,6 +252,7 @@ async def add_auth_to_request(request: Request, call_next):
         )
     
     # Validate token and add user to request
+    auth_middleware = get_auth_middleware()
     user_data = await auth_middleware.validate_token(credentials)
     request.state.user = user_data
     

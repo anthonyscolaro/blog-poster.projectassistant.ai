@@ -15,8 +15,8 @@ from src.models.responses import (
     SystemMetricsResponse,
     create_response
 )
-from src.middleware.auth import auth_middleware
-from src.database import get_db_session
+from src.middleware.auth import get_auth_middleware
+from src.database.connection import get_db_session
 from src.database.repositories import PipelineRepository, ArticleRepository
 
 logger = logging.getLogger(__name__)
@@ -255,7 +255,6 @@ def estimate_api_usage(pipelines: List) -> Dict[str, int]:
 
 
 @router.get("/health/dependencies")
-@auth_middleware.require_permission('read')
 async def check_dependencies(request: Request):
     """
     Check health of all external dependencies
