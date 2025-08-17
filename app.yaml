@@ -111,17 +111,17 @@ services:
       - key: SUPABASE_URL
         scope: RUN_TIME
         type: SECRET
-        value: "https://pynlhikthsmduttvihuw.supabase.co"
+        value: "https://epftkydwdqerdlhvqili.supabase.co"
       
       - key: SUPABASE_ANON_KEY
         scope: RUN_TIME
         type: SECRET
-        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5bmxoaWt0aHNtZHV0dHZpaHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzODIwMTYsImV4cCI6MjA3MDk1ODAxNn0.BDGAvf1jeX9iiQF7RaouCyzds6NS58guKB4l39AX_uQ"
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnRreWR3ZHFlcmRsaHZxaWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyODQ1NDAsImV4cCI6MjA3MDg2MDU0MH0.Mn9Re4itgw0w7Qi2RyD4V0vmGx8tLtJPNdbNtpP0-Ng"
       
       - key: SUPABASE_SERVICE_KEY
         scope: RUN_TIME
         type: SECRET
-        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5bmxoaWt0aHNtZHV0dHZpaHV3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTM4MjAxNiwiZXhwIjoyMDcwOTU4MDE2fQ._hyfVCT8sAMVKPZkqjxu3RMW7fX2BEofW05H9G1tSrM"
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnRreWR3ZHFlcmRsaHZxaWxpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTI4NDU0MCwiZXhwIjoyMDcwODYwNTQwfQ.vM4-DdBqqQh9KfsHmuxKlXyNHMVyZ60qZ6kmXHW7k9o"
       
       - key: SUPABASE_JWT_SECRET
         scope: RUN_TIME
