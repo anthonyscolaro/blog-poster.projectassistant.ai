@@ -1,0 +1,67 @@
+# Minimal Digital Ocean App Platform Configuration
+# Blog-Poster FastAPI Backend - Just the essentials
+name: blog-poster-api-minimal
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DEPLOYMENT_LIVE
+
+features:
+  - buildpack-stack=ubuntu-22
+
+services:
+  - name: api
+    dockerfile_path: Dockerfile.light
+    source_dir: /
+    
+    # GitHub integration
+    github:
+      repo: anthonyscolaro/blog-poster.projectassistant.ai
+      branch: main
+      deploy_on_push: true
+    
+    # Resource allocation
+    instance_size_slug: basic-xxs  # Start small
+    instance_count: 1
+    
+    # HTTP configuration
+    http_port: 8088
+    
+    # Simple health check
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 60
+      period_seconds: 30
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 3
+    
+    # Run command
+    run_command: uvicorn app:app --host 0.0.0.0 --port 8088
+    
+    # Essential environment variables only
+    envs:
+      - key: ENVIRONMENT
+        scope: RUN_TIME
+        value: production
+      
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: INFO
+      
+      # Supabase backend database
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: "postgresql://postgres.pynlhikthsmduttvihuw:CcGUZqo8ZdqMD2pNUCNN@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+      
+      - key: SUPABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: "https://pynlhikthsmduttvihuw.supabase.co"
+      
+      - key: SUPABASE_ANON_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5bmxoaWt0aHNtZHV0dHZpaHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzODIwMTYsImV4cCI6MjA3MDk1ODAxNn0.BDGAvf1jeX9iiQF7RaouCyzds6NS58guKB4l39AX_uQ"

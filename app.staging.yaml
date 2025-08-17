@@ -25,7 +25,7 @@ services:
     
     # GitHub integration
     github:
-      repo: anthonyscolaro/blog-poster
+      repo: anthonyscolaro/blog-poster.projectassistant.ai
       branch: staging
       deploy_on_push: true
     
