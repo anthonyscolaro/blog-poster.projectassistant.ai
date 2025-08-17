@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize database on startup (required)
-from src.database import init_database
+from src.core.database import init_database
 try:
     init_database()
     logger.info("Database initialized successfully")
@@ -44,7 +44,9 @@ except Exception as e:
     logger.error(f"FATAL: Database initialization failed: {e}")
     logger.error("Cannot start application without database connection")
     logger.error("Please ensure DATABASE_URL is set and PostgreSQL is running")
-    sys.exit(1)
+    # Don't exit in production - let health checks handle it
+    if os.getenv("ENVIRONMENT") != "production":
+        sys.exit(1)
 
 # Import middleware
 from src.middleware.auth import add_auth_to_request
