@@ -234,6 +234,8 @@ def get_auth_middleware():
     return _auth_middleware
 
 
+
+
 async def add_auth_to_request(request: Request, call_next):
     """
     Middleware to add authentication to request state

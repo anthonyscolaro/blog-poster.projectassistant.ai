@@ -26,16 +26,27 @@ active_connections: Dict[str, Set[WebSocket]] = {}
 # Security for WebSocket authentication
 security = HTTPBearer(auto_error=False)
 
-# Initialize Supabase client for publishing updates
-supabase_client: Optional[Client] = None
-if os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_SERVICE_KEY'):
-    supabase_client = create_client(
-        os.getenv('SUPABASE_URL'),
-        os.getenv('SUPABASE_SERVICE_KEY')  # Use service key for backend operations
-    )
-    logger.info("Supabase client initialized for real-time updates")
-else:
-    logger.warning("Supabase credentials not configured - real-time updates disabled")
+# Lazy-initialized Supabase client for publishing updates
+_supabase_client: Optional[Client] = None
+
+def get_supabase_client() -> Optional[Client]:
+    """Get or create Supabase client"""
+    global _supabase_client
+    if _supabase_client is None:
+        if os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_SERVICE_KEY'):
+            try:
+                _supabase_client = create_client(
+                    os.getenv('SUPABASE_URL'),
+                    os.getenv('SUPABASE_SERVICE_KEY')  # Use service key for backend operations
+                )
+                logger.info("Supabase client initialized for real-time updates")
+            except Exception as e:
+                logger.error(f"Failed to initialize Supabase client: {e}")
+                return None
+        else:
+            logger.warning("Supabase credentials not configured - real-time updates disabled")
+            return None
+    return _supabase_client
 
 
 async def verify_ws_token(token: str) -> Dict:
@@ -317,7 +328,7 @@ async def publish_pipeline_update(execution_id: str, data: Dict):
         data['updated_at'] = datetime.utcnow().isoformat()
         
         result = await asyncio.to_thread(
-            lambda: supabase_client.table('pipeline_executions')
+            lambda: get_supabase_client().table('pipeline_executions') if get_supabase_client() else None
             .update(data)
             .eq('id', execution_id)
             .execute()
@@ -354,7 +365,7 @@ async def publish_pipeline_log(
         }
         
         result = await asyncio.to_thread(
-            lambda: supabase_client.table('pipeline_logs')
+            lambda: get_supabase_client().table('pipeline_logs') if get_supabase_client() else None
             .insert(log_entry)
             .execute()
         )
@@ -390,7 +401,7 @@ async def update_pipeline_status(
             params['p_error_message'] = error_message
         
         result = await asyncio.to_thread(
-            lambda: supabase_client.rpc('update_pipeline_status', params).execute()
+            lambda: get_supabase_client().rpc('update_pipeline_status', params).execute() if get_supabase_client() else None
         )
         
         logger.info(f"Updated pipeline status in Supabase: {execution_id} -> {status}")
@@ -412,8 +423,13 @@ async def complete_pipeline_agent(
         return
     
     try:
+        client = get_supabase_client()
+        if not client:
+            logger.warning("Supabase client not available - skipping agent completion update")
+            return
+            
         result = await asyncio.to_thread(
-            lambda: supabase_client.rpc('complete_pipeline_agent', {
+            lambda: client.rpc('complete_pipeline_agent', {
                 'p_execution_id': execution_id,
                 'p_agent_name': agent_name,
                 'p_cost': cost

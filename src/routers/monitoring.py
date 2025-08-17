@@ -15,7 +15,7 @@ from src.models.responses import (
     SystemMetricsResponse,
     create_response
 )
-from src.middleware.auth import get_auth_middleware
+from src.middleware.auth import auth_middleware
 from src.database.connection import get_db_session
 from src.database.repositories import PipelineRepository, ArticleRepository
 

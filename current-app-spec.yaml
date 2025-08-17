@@ -1,0 +1,88 @@
+alerts:
+- rule: DEPLOYMENT_FAILED
+- rule: DEPLOYMENT_LIVE
+features:
+- buildpack-stack=ubuntu-22
+ingress:
+  rules:
+  - component:
+      name: api
+    match:
+      path:
+        prefix: /
+name: blog-poster-staging
+region: nyc
+services:
+- dockerfile_path: Dockerfile
+  envs:
+  - key: DATABASE_URL
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:y4pJK5kwPl+eiXL1vxzd5jwvAchwH5AN:MJZ/wEZx4q+kJRPHggrqkhtmwlmm39sTqyI7RtCtXOQ+DuRxAh7Gt3Hp9Br947NxmCx8tbMjpD/Q7u0Ufp/pMELLWLyunKkbXtfpppjZLMQyjzSaM2R7/5KAtRutJjo26QhC1rBYD24q2bI06x5dIg==]
+  - key: SUPABASE_URL
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:H72bce530a+thwgmapdTbnf6MGJO/c+z:T/EY4pAhpsRe44bVbwjkgg==]
+  - key: SUPABASE_ANON_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:dKo2jB9WiSs+bVMDNBX4AZgT/UCh2Bwv:Yq9vEty0MtcgQFD6kohGGg==]
+  - key: SUPABASE_SERVICE_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:H8bvhqhjXdnXWrlShJogRMG0gZk6SvF3:XoGTmdNb5q3CQoJCvKL7Ng==]
+  - key: ANTHROPIC_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:kzDoddDfqwYfzZpcQs1weO4ig/MwVkGt:acKB2JEXYcJ8vaFYVqrvdA==]
+  - key: OPENAI_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:nkkdRV82yryEShGAXMSzRenJwLg+Ybat:d4DPKpqi9YjMB424KctGpQ==]
+  - key: JINA_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:hRS65hvxCwLPPxyNa6PvIPSf+6BWJuSB:DwBfEXMYPKYTKXfXRzdlvw==]
+  - key: WP_USERNAME
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:PBpit0gX1yvYx3Ix2+2OgbrNytABqzam:iCQeMorCiAZ4i+17ANfO2w==]
+  - key: WP_APP_PASSWORD
+    scope: RUN_TIME
+    type: SECRET
+    value: EV[1:/qI1HEeqRNHyEaX2tzjhhzYzNts5bSdv:MJEFUY48+5FkZEiT/XZmng==]
+  - key: ENVIRONMENT
+    scope: RUN_TIME
+    value: staging
+  - key: LOG_LEVEL
+    scope: RUN_TIME
+    value: INFO
+  - key: WORDPRESS_URL
+    scope: RUN_TIME
+    value: https://staging.servicedogus.com
+  - key: WP_VERIFY_SSL
+    scope: RUN_TIME
+    value: "false"
+  - key: REDIS_URL
+    scope: RUN_TIME
+  - key: QDRANT_URL
+    scope: RUN_TIME
+  github:
+    branch: staging
+    deploy_on_push: true
+    repo: anthonyscolaro/blog-poster
+  health_check:
+    failure_threshold: 5
+    http_path: /health
+    initial_delay_seconds: 90
+    period_seconds: 30
+    success_threshold: 1
+    timeout_seconds: 10
+  http_port: 8088
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  name: api
+  run_command: |
+    python scripts/init_database.py || echo "Database init may fail, continuing..."
+    uvicorn app:app --host 0.0.0.0 --port 8088
+  source_dir: /
