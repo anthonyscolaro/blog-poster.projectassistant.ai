@@ -7,7 +7,8 @@ import logging
 from typing import Optional, Dict, Any
 from fastapi import Request, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import InvalidTokenError as JWTError
 from supabase import create_client, Client
 from datetime import datetime, timezone
 
