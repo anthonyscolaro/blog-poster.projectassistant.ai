@@ -109,6 +109,13 @@ os.makedirs("static", exist_ok=True)
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Add root health endpoint for Digital Ocean health checks (must be at root)
+@app.get("/health")
+async def root_health_check():
+    """Root health endpoint for container health checks"""
+    from datetime import datetime
+    return {"status": "ok", "service": "blog-poster-api", "timestamp": datetime.utcnow().isoformat()}
+
 # Create API v1 router with prefix
 api_v1 = APIRouter(prefix="/api/v1")
 
