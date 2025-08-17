@@ -34,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 EXPOSE 8088
 
 # Run with startup script for better logging
-CMD ["/app/start.sh"]
+CMD ["/bin/bash", "/app/start.sh"]
