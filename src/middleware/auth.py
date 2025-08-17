@@ -233,6 +233,14 @@ def get_auth_middleware():
         _auth_middleware = JWTAuthMiddleware()
     return _auth_middleware
 
+# Create a module-level variable for backward compatibility
+# This will be initialized on first access
+class LazyAuthMiddleware:
+    def __getattr__(self, name):
+        return getattr(get_auth_middleware(), name)
+
+auth_middleware = LazyAuthMiddleware()
+
 
 
 
