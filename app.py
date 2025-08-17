@@ -41,12 +41,9 @@ try:
     init_database()
     logger.info("Database initialized successfully")
 except Exception as e:
-    logger.error(f"FATAL: Database initialization failed: {e}")
-    logger.error("Cannot start application without database connection")
-    logger.error("Please ensure DATABASE_URL is set and PostgreSQL is running")
-    # Don't exit in production - let health checks handle it
-    if os.getenv("ENVIRONMENT") != "production":
-        sys.exit(1)
+    logger.error(f"Database initialization failed: {e}")
+    logger.error("Will continue without database - health checks will report unhealthy")
+    # Don't exit - let the app start and report unhealthy via health checks
 
 # Import middleware
 from src.middleware.auth import add_auth_to_request
