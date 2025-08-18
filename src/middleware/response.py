@@ -61,7 +61,7 @@ class ResponseWrapperMiddleware(BaseHTTPMiddleware):
                     
                     # Return wrapped response
                     return JSONResponse(
-                        content=wrapped_response.dict(by_alias=True),
+                        content=json.loads(wrapped_response.json(by_alias=True)),
                         status_code=response.status_code,
                         headers=dict(response.headers)
                     )
@@ -100,7 +100,7 @@ class ResponseWrapperMiddleware(BaseHTTPMiddleware):
                     )
                     
                     return JSONResponse(
-                        content=error_response.dict(),
+                        content=json.loads(error_response.json()),
                         status_code=response.status_code,
                         headers=dict(response.headers)
                     )
@@ -124,7 +124,7 @@ class ResponseWrapperMiddleware(BaseHTTPMiddleware):
             )
             
             return JSONResponse(
-                content=error_response.dict(),
+                content=json.loads(error_response.json()),
                 status_code=500
             )
 
