@@ -73,9 +73,9 @@ app = FastAPI(
     title="Blog Poster API",
     version="3.0.0",
     description="Enterprise MicroSaaS Platform for AI-Powered Content Generation",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json"
+    docs_url="/docs",  # Make docs available at root level
+    redoc_url="/redoc",  # Make redoc available at root level
+    openapi_url="/openapi.json"  # OpenAPI spec at root level
 )
 
 # Add CORS middleware - SECURITY: Restrict origins
@@ -98,7 +98,9 @@ app.add_middleware(
 )
 
 # Add custom middleware
-app.add_middleware(ResponseWrapperMiddleware)
+# NOTE: ResponseWrapperMiddleware disabled due to Content-Length streaming issues
+# TODO: Fix the middleware to handle response streaming properly
+# app.add_middleware(ResponseWrapperMiddleware)
 app.add_middleware(OrganizationContextMiddleware)
 app.middleware("http")(add_auth_to_request)
 
